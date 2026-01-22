@@ -1,7 +1,7 @@
 module.exports = {
   // 常规格式规则（可根据团队调整）
   printWidth: 120, // 每行代码最大长度
-  tabWidth: 2, // 缩进 2 个空格
+  tabWidth: 4, // 缩进 4 个空格
   useTabs: false, // 使用空格而非制表符
   singleQuote: true, // 使用单引号
   semi: true, // 语句末尾加分号
