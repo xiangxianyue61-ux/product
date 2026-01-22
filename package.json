@@ -6,6 +6,12 @@
   "engines": {
     "node": "22.21.0"
   },
+  "lint-staged": {
+    "*.{js,ts,tsx,vue}": [
+      "prettier --write",
+      "eslint --fix"
+    ]
+  },
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",
