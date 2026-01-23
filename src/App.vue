@@ -1,10 +1,11 @@
-<script setup lang="ts">
-console.log('test'); // 若配置了 'no-console': 'warn'，会出现警告
-const unusedVar = 'test'; // 若配置了 '@typescript-eslint/no-unused-vars': 'warn'，会出现警告
-const test: any = 1;
-console.log(test);
-</script>
+<script setup lang="ts"></script>
 
-<template></template>
+<template>
+    <div class="w-[200px] h-[200px] bg-green-500">
+        <div class="w-[100px] h-[100px] bg-red-500">
+            <span>123</span>
+        </div>
+    </div>
+</template>
 
 <style scoped></style>
