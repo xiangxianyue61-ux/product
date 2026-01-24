@@ -10,7 +10,8 @@
                 <a-menu
                     mode="horizontal"
                     :selected-keys="[activeTopMenu]"
-                    class="!border-b-0 !leading-[64px]"
+                    class="!border-b-0 !leading-[64px] top-menu-no-collapse"
+                    :overflowedIndicator="null"
                     @click="handleTopMenuClick"
                 >
                     <a-menu-item v-for="item in topMenuItems" :key="item.key" :title="item.title">
@@ -207,36 +208,119 @@ const qualityManagementMenu: SideMenuItem[] = [
             { key: 'inspection-standard', title: '检验标准', route: '/quality-management/inspection-standard' },
         ],
     },
+    { key: 'incoming-inspection', title: '来料检验', route: '/quality-management/incoming-inspection' },
+    { key: 'in-process-inspection', title: '过程检验', route: '/quality-management/in-process-inspection' },
+    { key: 'final-inspection', title: '最终检验', route: '/quality-management/final-inspection' },
+    {
+        key: 'non-conforming',
+        title: '不合格品处理',
+        children: [
+            { key: 'handling-method', title: '处理方式', route: '/quality-management/handling-method' },
+            { key: 'handling-record', title: '处理记录', route: '/quality-management/handling-record' },
+        ],
+    },
+    { key: 'product-traceability', title: '产品追溯', route: '/quality-management/product-traceability' },
 ];
 
 const anomalyManagementMenu: SideMenuItem[] = [
     { key: 'category', title: '异常分类', route: '/anomaly-management/category' },
+    { key: 'level', title: '异常等级', route: '/anomaly-management/level' },
+    { key: 'anomaly-management', title: '异常管理', route: '/anomaly-management/anomaly-management' },
 ];
 
 const equipmentManagementMenu: SideMenuItem[] = [
     {
         key: 'equipment-management',
         title: '设备管理',
-        children: [{ key: 'equipment-file', title: '设备档案', route: '/equipment-management/equipment-file' }],
+        children: [
+            { key: 'equipment-file', title: '设备档案', route: '/equipment-management/equipment-file' },
+            { key: 'equipment-data', title: '设备数据', route: '/equipment-management/equipment-data' },
+            { key: 'equipment-scrapping', title: '设备报废', route: '/equipment-management/equipment-scrapping' },
+            { key: 'equipment-repair', title: '设备维修', route: '/equipment-management/equipment-repair' },
+            { key: 'equipment-maintenance', title: '设备保养', route: '/equipment-management/equipment-maintenance' },
+            { key: 'equipment-inspection', title: '设备巡检点检', route: '/equipment-management/equipment-inspection' },
+        ],
+    },
+    {
+        key: 'spare-parts',
+        title: '备品备件管理',
+        children: [
+            { key: 'spare-parts-file', title: '备品备件档案', route: '/equipment-management/spare-parts-file' },
+            { key: 'spare-parts-issue', title: '备品备件领用归还', route: '/equipment-management/spare-parts-issue' },
+            {
+                key: 'spare-parts-scrapping',
+                title: '备品备件报废',
+                route: '/equipment-management/spare-parts-scrapping',
+            },
+        ],
     },
 ];
 
 const warehouseManagementMenu: SideMenuItem[] = [
-    { key: 'warehouse-building', title: '仓库建模', route: '/warehouse-management/warehouse-building' },
+    {
+        key: 'warehouse-settings',
+        title: '仓库设置',
+        children: [
+            { key: 'warehouse-building', title: '仓库建模', route: '/warehouse-management/warehouse-building' },
+            { key: 'warehouse-area', title: '库区建模', route: '/warehouse-management/warehouse-area' },
+            { key: 'warehouse-location', title: '库位建模', route: '/warehouse-management/warehouse-location' },
+        ],
+    },
+    { key: 'current-inventory', title: '库存现有量', route: '/warehouse-management/current-inventory' },
+    { key: 'purchase-inbound', title: '采购入库', route: '/warehouse-management/purchase-inbound' },
+    { key: 'production-requisition', title: '生产领料', route: '/warehouse-management/production-requisition' },
+    { key: 'production-return', title: '生产退料', route: '/warehouse-management/production-return' },
+    { key: 'product-outbound', title: '产品出库', route: '/warehouse-management/product-outbound' },
+    { key: 'transfer-allocation', title: '转移调拨', route: '/warehouse-management/transfer-allocation' },
+    { key: 'coding-management', title: '赋码管理', route: '/warehouse-management/coding-management' },
+    { key: 'sn-code-management', title: 'SN码管理', route: '/warehouse-management/sn-code-management' },
 ];
 
-const taskManagementMenu: SideMenuItem[] = [{ key: 'all-todo', title: '全部待办', route: '/task-management/all-todo' }];
+const taskManagementMenu: SideMenuItem[] = [
+    { key: 'all-todo', title: '全部待办', route: '/task-management/all-todo' },
+    { key: 'my-todo', title: '我的待办', route: '/task-management/my-todo' },
+    { key: 'my-initiated', title: '我发起的', route: '/task-management/my-initiated' },
+    { key: 'my-processed', title: '我处理的', route: '/task-management/my-processed' },
+];
 
 const processManagementMenu: SideMenuItem[] = [
     { key: 'process-model', title: '流程模型', route: '/process-management/process-model' },
+    { key: 'business-form', title: '业务表单', route: '/process-management/business-form' },
+    { key: 'form-config', title: '表单配置', route: '/process-management/form-config' },
 ];
 
 const systemSettingsMenu: SideMenuItem[] = [
     {
         key: 'org-structure',
         title: '组织架构',
-        children: [{ key: 'department-info', title: '部门信息', route: '/system-settings/department-info' }],
+        children: [
+            { key: 'department-info', title: '部门信息', route: '/system-settings/department-info' },
+            { key: 'position-info', title: '职位信息', route: '/system-settings/position-info' },
+            { key: 'employee-info', title: '员工信息', route: '/system-settings/employee-info' },
+            { key: 'supplier-management', title: '供应商管理', route: '/system-settings/supplier-management' },
+            { key: 'customer-management', title: '客户管理', route: '/system-settings/customer-management' },
+        ],
     },
+    {
+        key: 'permission-management',
+        title: '权限管理',
+        children: [
+            { key: 'role-management', title: '角色管理', route: '/system-settings/role-management' },
+            { key: 'user-management', title: '用户管理', route: '/system-settings/user-management' },
+            { key: 'menu-management', title: '菜单管理', route: '/system-settings/menu-management' },
+        ],
+    },
+    {
+        key: 'production-config',
+        title: '生产配置',
+        children: [
+            { key: 'production-team', title: '生产班组', route: '/system-settings/production-team' },
+            { key: 'work-calendar', title: '工作日历', route: '/system-settings/work-calendar' },
+            { key: 'scheduling-plan', title: '排班计划', route: '/system-settings/scheduling-plan' },
+        ],
+    },
+    { key: 'dictionary-management', title: '字典管理', route: '/system-settings/dictionary-management' },
+    { key: 'coding-rules', title: '编码规则', route: '/system-settings/coding-rules' },
 ];
 
 // 是否显示侧边栏
@@ -302,6 +386,14 @@ const openKeys = ref<string[]>([
     'production-gantt',
     'production-reporting',
     'production-reports',
+    'quality-modeling',
+    'non-conforming',
+    'equipment-management',
+    'spare-parts',
+    'warehouse-settings',
+    'org-structure',
+    'permission-management',
+    'production-config',
 ]);
 
 // 面包屑导航
@@ -387,10 +479,56 @@ watch(
             openKeys.value = ['production-reporting'];
         } else if (route.path.includes('achievement-rate') || route.path.includes('on-time-rate')) {
             openKeys.value = ['production-reports'];
+        } else if (route.path.includes('quality-management')) {
+            if (route.path.includes('inspection-')) {
+                openKeys.value = ['quality-modeling'];
+            } else if (route.path.includes('handling-')) {
+                openKeys.value = ['non-conforming'];
+            }
+        } else if (route.path.includes('equipment-management')) {
+            if (route.path.includes('equipment-') || route.path.includes('spare-parts-')) {
+                openKeys.value = ['equipment-management', 'spare-parts'];
+            }
+        } else if (route.path.includes('warehouse-management')) {
+            if (route.path.includes('warehouse-')) {
+                openKeys.value = ['warehouse-settings'];
+            }
+        } else if (route.path.includes('system-settings')) {
+            if (
+                route.path.includes('department-') ||
+                route.path.includes('position-') ||
+                route.path.includes('employee-') ||
+                route.path.includes('supplier-') ||
+                route.path.includes('customer-')
+            ) {
+                openKeys.value = ['org-structure'];
+            } else if (route.path.includes('role-') || route.path.includes('user-') || route.path.includes('menu-')) {
+                openKeys.value = ['permission-management'];
+            } else if (
+                route.path.includes('production-team') ||
+                route.path.includes('work-calendar') ||
+                route.path.includes('scheduling-plan')
+            ) {
+                openKeys.value = ['production-config'];
+            }
         }
     },
     { immediate: true }
 );
 </script>
 
-<style scoped></style>
+<style scoped>
+/* 取消顶部菜单折叠功能 */
+:deep(.top-menu-no-collapse .ant-menu-overflow-item-rest) {
+    display: none !important;
+}
+
+:deep(.top-menu-no-collapse .ant-menu-item) {
+    display: inline-block !important;
+}
+
+:deep(.top-menu-no-collapse) {
+    white-space: nowrap;
+    overflow: visible !important;
+}
+</style>
