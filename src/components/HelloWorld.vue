@@ -5,5 +5,3 @@
         <span>123</span>
     </div>
 </template>
-
-<style scoped></style>
