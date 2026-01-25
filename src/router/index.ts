@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import Layout from '../layouts/MainLayout.vue';
+import { setupAuthGuard } from '../../Auth';
 
 const routes: RouteRecordRaw[] = [
     {
@@ -455,11 +456,19 @@ const routes: RouteRecordRaw[] = [
             },
         ],
     },
+    {
+        path: '/login',
+        name: 'Login',
+        component: () => import('../views/LoginView.vue'),
+        meta: { title: '登录', module: 'login' },
+    },
 ];
 
 const router = createRouter({
     history: createWebHistory('/product/'),
     routes,
 });
+
+setupAuthGuard(router);
 
 export default router;
