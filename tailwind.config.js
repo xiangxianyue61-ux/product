@@ -1,8 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-    content: [
-        './src/**/*.{js,jsx,ts,tsx,vue,scss,css,less}', // React 文件路径
-    ],
+    content: ['./src/**/*.{js,jsx,ts,tsx,vue,scss,css,less}'],
     theme: {
         extend: {},
     },
