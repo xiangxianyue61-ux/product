@@ -1,161 +1,175 @@
 <template>
-    <span @click="handleNavigate" class="cursor-pointer hover:text-blue-500 transition-colors">数据看板</span>
-    <div class="bg-[#f0f2f5] min-h-screen p-4">
-        <!-- KPI卡片区域 -->
-        <div class="flex gap-4 mb-4">
-            <div v-for="kpi in kpiList" :key="kpi.key" class="flex-1">
-                <a-card class="rounded-lg shadow-sm h-full" :bordered="false">
-                    <div class="flex items-center gap-4">
-                        <div
-                            class="w-[60px] h-[60px] rounded-lg flex items-center justify-center text-white text-2xl flex-shrink-0"
-                            :style="{ backgroundColor: kpi.iconBg }"
-                        >
-                            <component :is="kpi.icon" />
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <div class="text-sm text-gray-500 mb-2">{{ kpi.label }}</div>
-                            <div class="text-2xl font-bold text-gray-800 mb-1">
-                                {{ kpi.value }}
-                                <span v-if="kpi.unit" class="text-base ml-1">{{ kpi.unit }}</span>
-                            </div>
+    <div>
+        <span @click="handleNavigate" class="cursor-pointer hover:text-blue-500 transition-colors">数据看板</span>
+        <div class="bg-[#f0f2f5] min-h-screen p-4">
+            <!-- KPI卡片区域 -->
+            <div class="flex gap-4 mb-4">
+                <div v-for="kpi in kpiList" :key="kpi.key" class="flex-1">
+                    <a-card class="rounded-lg shadow-sm h-full" :bordered="false">
+                        <div class="flex items-center gap-4">
                             <div
-                                class="text-xs flex items-center gap-1"
-                                :class="kpi.trendType === 'up' ? 'text-green-500' : 'text-red-500'"
+                                class="w-[60px] h-[60px] rounded-lg flex items-center justify-center text-white text-2xl flex-shrink-0"
+                                :style="{ backgroundColor: kpi.iconBg }"
                             >
-                                <ArrowUpOutlined v-if="kpi.trendType === 'up'" />
-                                <ArrowDownOutlined v-else />
-                                <span>
-                                    本月较上月{{ kpi.trendType === 'up' ? '增加' : '减少' }} {{ Math.abs(kpi.trend) }}%
-                                </span>
+                                <component :is="kpi.icon" />
                             </div>
-                        </div>
-                    </div>
-                </a-card>
-            </div>
-        </div>
-
-        <!-- 饼图和右侧边栏区域 -->
-        <a-row :gutter="16" class="mb-4">
-            <!-- 左侧饼图和下方内容区域 -->
-            <a-col :span="18">
-                <!-- 饼图区域 -->
-                <a-row :gutter="16" class="mb-4">
-                    <a-col :span="8" v-for="chart in donutCharts" :key="chart.key">
-                        <a-card :title="chart.title" class="rounded-lg shadow-sm h-full" :bordered="false">
-                            <div :data-chart="chart.key" class="w-full h-[250px]"></div>
-                            <div class="mt-4 flex flex-wrap gap-4">
-                                <div v-for="(item, index) in chart.data" :key="index" class="flex items-center gap-2">
-                                    <div
-                                        class="w-3 h-3 rounded-full flex-shrink-0"
-                                        :style="{ backgroundColor: chart.colors[index] }"
-                                    ></div>
-                                    <span class="text-sm text-gray-600">{{ item.name }}</span>
-                                    <span class="text-sm font-medium text-gray-800">{{ item.value }}个</span>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-gray-500 mb-2">{{ kpi.label }}</div>
+                                <div class="text-2xl font-bold text-gray-800 mb-1">
+                                    {{ kpi.value }}
+                                    <span v-if="kpi.unit" class="text-base ml-1">{{ kpi.unit }}</span>
                                 </div>
-                            </div>
-                        </a-card>
-                    </a-col>
-                </a-row>
-
-                <!-- 趋势图区域 -->
-                <a-row :gutter="16" class="mb-4">
-                    <a-col :span="12">
-                        <a-card title="工单产出统计" class="rounded-lg shadow-sm h-full" :bordered="false">
-                            <div class="text-sm text-gray-500 mb-2">近一年</div>
-                            <div ref="barChartRef" class="w-full h-[300px]"></div>
-                        </a-card>
-                    </a-col>
-                    <a-col :span="12">
-                        <a-card title="产品合格率" class="rounded-lg shadow-sm h-full" :bordered="false">
-                            <div class="text-sm text-gray-500 mb-2">近一年</div>
-                            <div ref="lineChartRef" class="w-full h-[300px]"></div>
-                        </a-card>
-                    </a-col>
-                </a-row>
-
-                <!-- 生产进度表格 -->
-                <a-card class="rounded-lg shadow-sm" :bordered="false">
-                    <template #title>
-                        <span>生产进度</span>
-                    </template>
-                    <template #extra>
-                        <a class="text-blue-500 text-sm">全部 ></a>
-                    </template>
-                    <a-table :columns="progressColumns" :data-source="progressData" :pagination="false" size="small">
-                        <template #bodyCell="{ column, record }">
-                            <template v-if="column.key === 'progress'">
-                                <a-progress
-                                    :percent="record.progress"
-                                    :stroke-color="getProgressColor(record.progress)"
-                                />
-                            </template>
-                            <template v-else-if="column.key === 'priority'">
-                                <a-tag :color="getPriorityColor(record.priority)">{{ record.priority }}</a-tag>
-                            </template>
-                        </template>
-                    </a-table>
-                </a-card>
-            </a-col>
-
-            <!-- 右侧日历和待办 -->
-            <a-col :span="6">
-                <a-card class="rounded-lg shadow-sm mb-4" :bordered="false">
-                    <a-calendar v-model:value="calendarValue" :fullscreen="false" />
-                </a-card>
-
-                <a-card class="rounded-lg shadow-sm" :bordered="false">
-                    <template #title>
-                        <div class="flex items-center justify-between w-full">
-                            <span>我的待办</span>
-                            <a class="text-blue-500 text-sm">全部 ></a>
-                        </div>
-                    </template>
-                    <a-tabs v-model:activeKey="todoActiveTab" size="small" class="mb-2">
-                        <a-tab-pane key="todo" :tab="`我的待办(${todoList.length})`" />
-                        <a-tab-pane key="initiated" :tab="`我发起的(${initiatedList.length})`" />
-                        <a-tab-pane key="handled" :tab="`我处理的(${handledList.length})`" />
-                    </a-tabs>
-                    <div class="max-h-[400px] overflow-y-auto">
-                        <div
-                            v-for="(item, index) in currentTodoList"
-                            :key="index"
-                            class="py-3 border-b border-gray-200 last:border-b-0 flex items-center gap-3"
-                        >
-                            <div
-                                class="w-1 h-12 rounded-full flex-shrink-0"
-                                :style="{ backgroundColor: item.color }"
-                            ></div>
-                            <div class="flex-1 text-sm text-gray-800 min-w-0">{{ item.content }}</div>
-                            <a-button type="link" size="small" class="flex-shrink-0" :style="{ color: item.color }">
-                                去处理
-                            </a-button>
-                        </div>
-                    </div>
-                </a-card>
-
-                <!-- 快捷入口 -->
-                <a-card title="快捷入口" class="rounded-lg shadow-sm mt-4" :bordered="false">
-                    <template #extra>
-                        <a class="text-blue-500 text-sm">修改 ></a>
-                    </template>
-                    <a-row :gutter="[8, 8]">
-                        <a-col :span="6" v-for="entry in quickEntries" :key="entry.key">
-                            <div
-                                class="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
-                            >
                                 <div
-                                    class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg mb-1"
-                                    :style="{ backgroundColor: entry.color }"
+                                    class="text-xs flex items-center gap-1"
+                                    :class="kpi.trendType === 'up' ? 'text-green-500' : 'text-red-500'"
                                 >
-                                    <component :is="entry.icon" />
+                                    <ArrowUpOutlined v-if="kpi.trendType === 'up'" />
+                                    <ArrowDownOutlined v-else />
+                                    <span>
+                                        本月较上月{{ kpi.trendType === 'up' ? '增加' : '减少' }}
+                                        {{ Math.abs(kpi.trend) }}%
+                                    </span>
                                 </div>
-                                <span class="text-xs text-gray-600 text-center leading-tight">{{ entry.label }}</span>
                             </div>
+                        </div>
+                    </a-card>
+                </div>
+            </div>
+
+            <!-- 饼图和右侧边栏区域 -->
+            <a-row :gutter="16" class="mb-4">
+                <!-- 左侧饼图和下方内容区域 -->
+                <a-col :span="18">
+                    <!-- 饼图区域 -->
+                    <a-row :gutter="16" class="mb-4">
+                        <a-col :span="8" v-for="chart in donutCharts" :key="chart.key">
+                            <a-card :title="chart.title" class="rounded-lg shadow-sm h-full" :bordered="false">
+                                <div :data-chart="chart.key" class="w-full h-[250px]"></div>
+                                <div class="mt-4 flex flex-wrap gap-4">
+                                    <div
+                                        v-for="(item, index) in chart.data"
+                                        :key="index"
+                                        class="flex items-center gap-2"
+                                    >
+                                        <div
+                                            class="w-3 h-3 rounded-full flex-shrink-0"
+                                            :style="{ backgroundColor: chart.colors[index] }"
+                                        ></div>
+                                        <span class="text-sm text-gray-600">{{ item.name }}</span>
+                                        <span class="text-sm font-medium text-gray-800">{{ item.value }}个</span>
+                                    </div>
+                                </div>
+                            </a-card>
                         </a-col>
                     </a-row>
-                </a-card>
-            </a-col>
-        </a-row>
+
+                    <!-- 趋势图区域 -->
+                    <a-row :gutter="16" class="mb-4">
+                        <a-col :span="12">
+                            <a-card title="工单产出统计" class="rounded-lg shadow-sm h-full" :bordered="false">
+                                <div class="text-sm text-gray-500 mb-2">近一年</div>
+                                <div ref="barChartRef" class="w-full h-[300px]"></div>
+                            </a-card>
+                        </a-col>
+                        <a-col :span="12">
+                            <a-card title="产品合格率" class="rounded-lg shadow-sm h-full" :bordered="false">
+                                <div class="text-sm text-gray-500 mb-2">近一年</div>
+                                <div ref="lineChartRef" class="w-full h-[300px]"></div>
+                            </a-card>
+                        </a-col>
+                    </a-row>
+
+                    <!-- 生产进度表格 -->
+                    <a-card class="rounded-lg shadow-sm" :bordered="false">
+                        <template #title>
+                            <span>生产进度</span>
+                        </template>
+                        <template #extra>
+                            <a class="text-blue-500 text-sm">全部 ></a>
+                        </template>
+                        <a-table
+                            :columns="progressColumns"
+                            :data-source="progressData"
+                            :pagination="false"
+                            size="small"
+                        >
+                            <template #bodyCell="{ column, record }">
+                                <template v-if="column.key === 'progress'">
+                                    <a-progress
+                                        :percent="record.progress"
+                                        :stroke-color="getProgressColor(record.progress)"
+                                    />
+                                </template>
+                                <template v-else-if="column.key === 'priority'">
+                                    <a-tag :color="getPriorityColor(record.priority)">{{ record.priority }}</a-tag>
+                                </template>
+                            </template>
+                        </a-table>
+                    </a-card>
+                </a-col>
+
+                <!-- 右侧日历和待办 -->
+                <a-col :span="6">
+                    <a-card class="rounded-lg shadow-sm mb-4" :bordered="false">
+                        <a-calendar v-model:value="calendarValue" :fullscreen="false" />
+                    </a-card>
+
+                    <a-card class="rounded-lg shadow-sm" :bordered="false">
+                        <template #title>
+                            <div class="flex items-center justify-between w-full">
+                                <span>我的待办</span>
+                                <a class="text-blue-500 text-sm">全部 ></a>
+                            </div>
+                        </template>
+                        <a-tabs v-model:activeKey="todoActiveTab" size="small" class="mb-2">
+                            <a-tab-pane key="todo" :tab="`我的待办(${todoList.length})`" />
+                            <a-tab-pane key="initiated" :tab="`我发起的(${initiatedList.length})`" />
+                            <a-tab-pane key="handled" :tab="`我处理的(${handledList.length})`" />
+                        </a-tabs>
+                        <div class="max-h-[400px] overflow-y-auto">
+                            <div
+                                v-for="(item, index) in currentTodoList"
+                                :key="index"
+                                class="py-3 border-b border-gray-200 last:border-b-0 flex items-center gap-3"
+                            >
+                                <div
+                                    class="w-1 h-12 rounded-full flex-shrink-0"
+                                    :style="{ backgroundColor: item.color }"
+                                ></div>
+                                <div class="flex-1 text-sm text-gray-800 min-w-0">{{ item.content }}</div>
+                                <a-button type="link" size="small" class="flex-shrink-0" :style="{ color: item.color }">
+                                    去处理
+                                </a-button>
+                            </div>
+                        </div>
+                    </a-card>
+
+                    <!-- 快捷入口 -->
+                    <a-card title="快捷入口" class="rounded-lg shadow-sm mt-4" :bordered="false">
+                        <template #extra>
+                            <a class="text-blue-500 text-sm">修改 ></a>
+                        </template>
+                        <a-row :gutter="[8, 8]">
+                            <a-col :span="6" v-for="entry in quickEntries" :key="entry.key">
+                                <div
+                                    class="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+                                >
+                                    <div
+                                        class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg mb-1"
+                                        :style="{ backgroundColor: entry.color }"
+                                    >
+                                        <component :is="entry.icon" />
+                                    </div>
+                                    <span class="text-xs text-gray-600 text-center leading-tight">
+                                        {{ entry.label }}
+                                    </span>
+                                </div>
+                            </a-col>
+                        </a-row>
+                    </a-card>
+                </a-col>
+            </a-row>
+        </div>
     </div>
 </template>
 
