@@ -28,8 +28,8 @@
                         <a-avatar :size="32" class="cursor-pointer">用</a-avatar>
                         <template #overlay>
                             <a-menu>
-                                <a-menu-item>个人中心</a-menu-item>
-                                <a-menu-item>退出登录</a-menu-item>
+                                <a-menu-item @click="router.push('/profile')">个人中心</a-menu-item>
+                                <a-menu-item @click="handleLogout">退出登录</a-menu-item>
                             </a-menu>
                         </template>
                     </a-dropdown>
@@ -51,7 +51,7 @@
                     @click="handleSideMenuClick"
                     @openChange="handleOpenChange"
                 >
-                    <template v-for="group in sideMenuGroups" :key="group.key">
+                    <template v-for="group in sideMenuGroups">
                         <a-sub-menu v-if="group.children" :key="`sub-${group.key}`" :title="group.title">
                             <a-menu-item v-for="child in group.children" :key="child.key">
                                 {{ child.title }}
@@ -448,6 +448,20 @@ const handleSideMenuClick = (e: { key: string }) => {
         targetRoute = findRoute(planningManagementMenu);
     } else if (activeTopMenu.value === 'production-management') {
         targetRoute = findRoute(productionManagementMenu);
+    } else if (activeTopMenu.value === 'quality-management') {
+        targetRoute = findRoute(qualityManagementMenu);
+    } else if (activeTopMenu.value === 'anomaly-management') {
+        targetRoute = findRoute(anomalyManagementMenu);
+    } else if (activeTopMenu.value === 'equipment-management') {
+        targetRoute = findRoute(equipmentManagementMenu);
+    } else if (activeTopMenu.value === 'warehouse-management') {
+        targetRoute = findRoute(warehouseManagementMenu);
+    } else if (activeTopMenu.value === 'task-management') {
+        targetRoute = findRoute(taskManagementMenu);
+    } else if (activeTopMenu.value === 'process-management') {
+        targetRoute = findRoute(processManagementMenu);
+    } else if (activeTopMenu.value === 'system-settings') {
+        targetRoute = findRoute(systemSettingsMenu);
     }
 
     if (targetRoute) {
@@ -460,38 +474,46 @@ const handleOpenChange = (keys: string[]) => {
     openKeys.value = keys;
 };
 
-// 监听路由变化，自动展开对应的菜单
+const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    router.push('/login');
+};
+
+const ensureOpenKeys = (keys: string[]) => {
+    openKeys.value = Array.from(new Set([...openKeys.value, ...keys]));
+};
+
 watch(
     () => route.path,
     () => {
         if (route.path.includes('material-')) {
-            openKeys.value = ['material-modeling'];
+            ensureOpenKeys(['material-modeling']);
         } else if (route.path.includes('process-') && !route.path.includes('process-flow-card')) {
-            openKeys.value = ['process-management'];
+            ensureOpenKeys(['process-management']);
         } else if (
             route.path.includes('production-gantt') ||
             route.path.includes('process-gantt') ||
             route.path.includes('workshop-gantt') ||
             route.path.includes('work-order-gantt')
         ) {
-            openKeys.value = ['production-gantt'];
+            ensureOpenKeys(['production-gantt']);
         } else if (route.path.includes('production-reporting') || route.path.includes('reporting-records')) {
-            openKeys.value = ['production-reporting'];
+            ensureOpenKeys(['production-reporting']);
         } else if (route.path.includes('achievement-rate') || route.path.includes('on-time-rate')) {
-            openKeys.value = ['production-reports'];
+            ensureOpenKeys(['production-reports']);
         } else if (route.path.includes('quality-management')) {
             if (route.path.includes('inspection-')) {
-                openKeys.value = ['quality-modeling'];
+                ensureOpenKeys(['quality-modeling']);
             } else if (route.path.includes('handling-')) {
-                openKeys.value = ['non-conforming'];
+                ensureOpenKeys(['non-conforming']);
             }
         } else if (route.path.includes('equipment-management')) {
             if (route.path.includes('equipment-') || route.path.includes('spare-parts-')) {
-                openKeys.value = ['equipment-management', 'spare-parts'];
+                ensureOpenKeys(['equipment-management', 'spare-parts']);
             }
         } else if (route.path.includes('warehouse-management')) {
             if (route.path.includes('warehouse-')) {
-                openKeys.value = ['warehouse-settings'];
+                ensureOpenKeys(['warehouse-settings']);
             }
         } else if (route.path.includes('system-settings')) {
             if (
@@ -501,15 +523,15 @@ watch(
                 route.path.includes('supplier-') ||
                 route.path.includes('customer-')
             ) {
-                openKeys.value = ['org-structure'];
+                ensureOpenKeys(['org-structure']);
             } else if (route.path.includes('role-') || route.path.includes('user-') || route.path.includes('menu-')) {
-                openKeys.value = ['permission-management'];
+                ensureOpenKeys(['permission-management']);
             } else if (
                 route.path.includes('production-team') ||
                 route.path.includes('work-calendar') ||
                 route.path.includes('scheduling-plan')
             ) {
-                openKeys.value = ['production-config'];
+                ensureOpenKeys(['production-config']);
             }
         }
     },
