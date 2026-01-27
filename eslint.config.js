@@ -86,6 +86,7 @@ export default [
             '@typescript-eslint/no-explicit-any': 'warn',
             'vue/no-unused-vars': 'warn',
             'vue/multi-word-component-names': 'off',
+            'vue/no-v-model-argument': 'off',
         },
     },
 

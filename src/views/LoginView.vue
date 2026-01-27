@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { post } from '../http/request';
+import { login } from '../api/modules/auth';
 import { useRouter } from 'vue-router';
 const router = useRouter();
 // 1. 定义表单响应式数据
@@ -17,7 +17,7 @@ const togglePassword = () => {
 };
 
 // 3. 表单提交方法
-const handleLogin = () => {
+const handleLogin = async () => {
     // 基础表单校验
     if (!formData.value.username.trim()) {
         alert('请输入账号！');
@@ -29,25 +29,20 @@ const handleLogin = () => {
     }
 
     // 提交登录请求
-    post('/xx/login', formData.value)
-        .then((res: any) => {
-            if (res.data.success) {
-                if (res.data.token) {
-                    localStorage.setItem('access_token', res.data.token);
-                }
-                router.push('/home');
-            } else {
-                alert(res.data.msg || '登录失败');
+    try {
+        const res = await login(formData.value);
+        if (res.data.success) {
+            if (res.data.token) {
+                localStorage.setItem('access_token', res.data.token);
             }
-        })
-        .catch((err: any) => {
-            console.error('登录请求失败:', err);
-            alert('登录请求失败，请稍后重试');
-        });
-
-    // 重置表单（可选）
-    formData.value.username = '';
-    formData.value.password = '';
+            router.push('/profile');
+        } else {
+            alert(res.data.msg || '登录失败');
+        }
+    } catch (error) {
+        console.error('登录请求失败:', error);
+        alert('登录请求失败，请稍后重试');
+    }
 };
 </script>
 

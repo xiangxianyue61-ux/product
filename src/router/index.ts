@@ -454,6 +454,12 @@ const routes: RouteRecordRaw[] = [
                 component: () => import('../views/system-settings/CodingRules.vue'),
                 meta: { title: '编码规则', module: 'system-settings' },
             },
+            {
+                path: 'profile',
+                name: 'Profile',
+                component: () => import('../views/system-settings/Profile.vue'),
+                meta: { title: '个人中心', module: 'system-settings' },
+            },
         ],
     },
     {
