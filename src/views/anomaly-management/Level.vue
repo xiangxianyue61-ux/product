@@ -2,16 +2,22 @@
     <div class="bg-[#f0f2f5]">
         <a-card class="mb-4" :bordered="false">
             <a-form :model="searchForm" layout="inline">
-                <a-form-item label="等级编号">
+                <a-form-item label="项目编号">
                     <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
-                <a-form-item label="等级名称">
+                <a-form-item label="项目名称">
                     <a-input v-model:value="searchForm.name" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item>
                     <a-space>
-                        <a-button type="primary" @click="handleSearch">查询</a-button>
-                        <a-button @click="handleReset">重置</a-button>
+                        <a-button type="primary" @click="handleSearch">
+                            <template #icon><SearchOutlined /></template>
+                            查询
+                        </a-button>
+                        <a-button @click="handleReset">
+                            <template #icon><ReloadOutlined /></template>
+                            重置
+                        </a-button>
                     </a-space>
                 </a-form-item>
             </a-form>
@@ -19,7 +25,10 @@
 
         <a-card class="mb-4" :bordered="false">
             <a-space>
-                <a-button type="primary" @click="noop">新增</a-button>
+                <a-button type="primary" @click="noop">
+                    <template #icon><PlusOutlined /></template>
+                    新增
+                </a-button>
                 <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
@@ -40,7 +49,9 @@
                     <template v-if="column.key === 'action'">
                         <a-space>
                             <a @click="noop">详情</a>
+                            <span>|</span>
                             <a @click="noop">编辑</a>
+                            <span>|</span>
                             <a style="color: #ff4d4f" @click="noop">删除</a>
                         </a-space>
                     </template>
@@ -72,6 +83,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 
 type Row = {
     id: number;
@@ -108,8 +120,8 @@ const tableData = ref<Row[]>([]);
 
 const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
     id: i + 1,
-    code: `YCDJ${String(i + 1).padStart(10, '0')}`,
-    name: ['轻微', '一般', '严重', '紧急'][i % 4],
+    code: `YICDJBH${String(i + 1).padStart(9, '0')}`,
+    name: ['重大异常', '严重异常', '一般异常', '轻微异常'][i % 4],
     remark: '无',
     creator: '刘超',
     createTime: '2025.04.24 14:00:00',

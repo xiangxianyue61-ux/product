@@ -455,6 +455,12 @@ const routes: RouteRecordRaw[] = [
             },
         ],
     },
+    {
+        path: '/data',
+        name: 'Data',
+        component: () => import('../views/data.vue'),
+        meta: { title: '数据看板', module: 'data' },
+    },
 ];
 
 const router = createRouter({

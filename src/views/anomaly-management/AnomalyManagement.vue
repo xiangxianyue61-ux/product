@@ -5,13 +5,25 @@
                 <a-form-item label="异常编号">
                     <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
+                <a-form-item label="生产工单">
+                    <a-input v-model:value="searchForm.workOrder" placeholder="请输入内容" style="width: 220px" />
+                </a-form-item>
                 <a-form-item label="异常分类">
                     <a-input v-model:value="searchForm.category" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
+                <a-form-item label="异常等级">
+                    <a-input v-model:value="searchForm.level" placeholder="请输入内容" style="width: 220px" />
+                </a-form-item>
                 <a-form-item>
                     <a-space>
-                        <a-button type="primary" @click="handleSearch">查询</a-button>
-                        <a-button @click="handleReset">重置</a-button>
+                        <a-button type="primary" @click="handleSearch">
+                            <template #icon><SearchOutlined /></template>
+                            查询
+                        </a-button>
+                        <a-button @click="handleReset">
+                            <template #icon><ReloadOutlined /></template>
+                            重置
+                        </a-button>
                     </a-space>
                 </a-form-item>
             </a-form>
@@ -19,7 +31,10 @@
 
         <a-card class="mb-4" :bordered="false">
             <a-space>
-                <a-button type="primary" @click="noop">新增</a-button>
+                <a-button type="primary" @click="noop">
+                    <template #icon><PlusOutlined /></template>
+                    新增
+                </a-button>
                 <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
@@ -36,11 +51,16 @@
                 :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
                 row-key="id"
             >
-                <template #bodyCell="{ column }">
+                <template #bodyCell="{ column, record }">
+                    <template v-if="column.key === 'result'">
+                        <a-tag :color="getResultColor(record.result)">{{ record.result }}</a-tag>
+                    </template>
                     <template v-if="column.key === 'action'">
                         <a-space>
                             <a @click="noop">详情</a>
-                            <a @click="noop">编辑</a>
+                            <span>|</span>
+                            <a @click="noop">处理</a>
+                            <span>|</span>
                             <a style="color: #ff4d4f" @click="noop">删除</a>
                         </a-space>
                     </template>
@@ -72,18 +92,24 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 
 type Row = {
     id: number;
     code: string;
+    workOrder: string;
+    process: string;
     category: string;
     level: string;
-    status: string;
+    result: string;
+    dutyDept: string;
+    dutyPerson: string;
+    description: string;
     creator: string;
     createTime: string;
 };
 
-const searchForm = reactive({ code: '', category: '' });
+const searchForm = reactive({ code: '', workOrder: '', category: '', level: '' });
 const selectedRowKeys = ref<number[]>([]);
 
 const pagination = reactive({ current: 1, pageSize: 15, total: 56 });
@@ -97,11 +123,16 @@ const columns = [
         width: 60,
         customRender: ({ index }: { index: number }) => (pagination.current - 1) * pagination.pageSize + index + 1,
     },
-    { title: '异常编号', dataIndex: 'code', key: 'code', width: 180 },
-    { title: '异常分类', dataIndex: 'category', key: 'category', width: 150 },
+    { title: '异常编号', dataIndex: 'code', key: 'code', width: 160 },
+    { title: '生产工单', dataIndex: 'workOrder', key: 'workOrder', width: 150 },
+    { title: '异常工序', dataIndex: 'process', key: 'process', width: 120 },
     { title: '异常等级', dataIndex: 'level', key: 'level', width: 120 },
-    { title: '处理状态', dataIndex: 'status', key: 'status', width: 120 },
-    { title: '创建人', dataIndex: 'creator', key: 'creator', width: 120 },
+    { title: '异常分类', dataIndex: 'category', key: 'category', width: 120 },
+    { title: '处理结果', dataIndex: 'result', key: 'result', width: 120 },
+    { title: '责任部门', dataIndex: 'dutyDept', key: 'dutyDept', width: 120 },
+    { title: '责任人', dataIndex: 'dutyPerson', key: 'dutyPerson', width: 100 },
+    { title: '异常描述', dataIndex: 'description', key: 'description', minWidth: 260 },
+    { title: '创建人', dataIndex: 'creator', key: 'creator', width: 100 },
     { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 180 },
     { title: '操作', key: 'action', width: 180, fixed: 'right' },
 ];
@@ -110,10 +141,15 @@ const tableData = ref<Row[]>([]);
 
 const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
     id: i + 1,
-    code: `YCBH${String(i + 1).padStart(10, '0')}`,
-    category: ['计划异常', '物料异常', '设备异常', '品质异常'][i % 4],
-    level: ['轻微', '一般', '严重', '紧急'][i % 4],
-    status: '待处理',
+    code: `WLBM${String(i + 1).padStart(6, '0')}`,
+    workOrder: 'SCGD0000001',
+    process: '第五道工序',
+    level: '一般异常',
+    category: '设备异常',
+    result: ['未处理', '已恢复正常', '暂时挂起', '未找到原因'][i % 4],
+    dutyDept: '设备管理部',
+    dutyPerson: '王蒙',
+    description: '设备有异响,偶尔卡顿',
     creator: '刘超',
     createTime: '2025.04.24 14:00:00',
 }));
@@ -136,7 +172,9 @@ const handleSearch = () => {
 
 const handleReset = () => {
     searchForm.code = '';
+    searchForm.workOrder = '';
     searchForm.category = '';
+    searchForm.level = '';
     pagination.current = 1;
     loadData();
 };
@@ -159,6 +197,14 @@ const handleJumpToPage = () => {
     } else {
         message.warning('请输入有效的页码');
     }
+};
+
+const getResultColor = (result: string) => {
+    if (result === '未处理') return 'blue';
+    if (result === '已恢复正常') return 'green';
+    if (result === '暂时挂起') return 'orange';
+    if (result === '未找到原因') return 'red';
+    return 'default';
 };
 
 const noop = () => message.info('演示页面：此功能暂未接入后端');

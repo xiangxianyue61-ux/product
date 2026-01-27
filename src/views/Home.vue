@@ -1,4 +1,5 @@
 <template>
+    <span @click="handleNavigate" class="cursor-pointer hover:text-blue-500 transition-colors">数据看板</span>
     <div class="bg-[#f0f2f5] min-h-screen p-4">
         <!-- KPI卡片区域 -->
         <div class="flex gap-4 mb-4">
@@ -160,6 +161,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import {
@@ -172,7 +174,6 @@ import {
     ShopOutlined,
     ShoppingOutlined,
     FileAddOutlined,
-    CalendarOutlined,
     InboxOutlined,
     SafetyOutlined,
     TeamOutlined,
@@ -181,7 +182,14 @@ import {
 } from '@ant-design/icons-vue';
 import * as echarts from 'echarts';
 
+const router = useRouter();
+
 const calendarValue = ref<Dayjs>(dayjs('2025-01-07'));
+
+// 路由跳转处理
+const handleNavigate = () => {
+    router.push({ name: 'Data' });
+};
 
 // KPI数据
 const kpiList = ref([
@@ -426,8 +434,8 @@ const initDonutCharts = () => {
                     graphic: [
                         {
                             type: 'text',
-                            left: '50%',
-                            top: '45%',
+                            left: 'center',
+                            top: '46.5%',
                             style: {
                                 text: chart.total.toString(),
                                 textAlign: 'center',
@@ -439,8 +447,8 @@ const initDonutCharts = () => {
                         },
                         {
                             type: 'text',
-                            left: '50%',
-                            top: '58%',
+                            left: 'center',
+                            top: '61.5%',
                             style: {
                                 text: chart.totalLabel,
                                 textAlign: 'center',
