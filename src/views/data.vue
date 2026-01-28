@@ -139,9 +139,32 @@
                     </div>
                 </div>
 
-                <!-- 工厂布局图 -->
+                <!-- 工厂布局图：3D 线框 -->
                 <div class="factory-diagram">
-                    <img src="../../public/1.jpg" alt="" />
+                    <div ref="factory3dRef" class="factory-3d-canvas" />
+
+                    <!-- 仅在 3D 区域内部的右侧详情面板（贴在模型区域右侧） -->
+                    <div v-if="workshopDrawerOpen" class="factory-side-panel" @click.stop>
+                        <div class="factory-side-header">
+                            <div class="factory-side-title">
+                                {{ activeWorkshopKey ? workshopMap[activeWorkshopKey].name : '车间详情' }}
+                            </div>
+                            <button class="factory-side-close" type="button" @click="workshopDrawerOpen = false">
+                                ×
+                            </button>
+                        </div>
+
+                        <div v-if="activeWorkshopKey" class="factory-side-content">
+                            <div
+                                class="factory-side-section"
+                                v-for="(t, i) in workshopMap[activeWorkshopKey].desc"
+                                :key="i"
+                            >
+                                <div class="factory-side-label">信息</div>
+                                <div class="factory-side-value">{{ t }}</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 今日生产进度 -->
@@ -289,6 +312,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import * as echarts from 'echarts';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import {
     RobotOutlined,
     ToolOutlined,
@@ -311,6 +338,23 @@ const warehouseIcons = {
     inbound: InboxOutlined,
     finishedInbound: InboxOutlined,
     outbound: ExportOutlined,
+};
+
+// 车间序号侧边详情
+type WorkshopKey = 1 | 2 | 3 | 4 | 5;
+const workshopDrawerOpen = ref(false);
+const activeWorkshopKey = ref<WorkshopKey | null>(null);
+const workshopMap: Record<WorkshopKey, { name: string; desc: string[] }> = {
+    1: { name: '生产车间', desc: ['生产加工 / 工单执行', '设备状态：正常', '产线：A1 / A2'] },
+    2: { name: '测试车间', desc: ['产品功能测试 / 老化测试', '设备状态：正常', '测试位：T1 / T2'] },
+    3: { name: '原材料仓库', desc: ['原材料收货 / 上架 / 发料', '库存状态：正常', '库区：R1 / R2'] },
+    4: { name: '质检车间', desc: ['来料 / 过程 / 出厂质检', '质检状态：正常', '检验位：Q1 / Q2'] },
+    5: { name: '成品仓库', desc: ['成品入库 / 出库 / 盘点', '库存状态：正常', '库区：F1 / F2'] },
+};
+
+const openWorkshopDrawer = (key: WorkshopKey) => {
+    activeWorkshopKey.value = key;
+    workshopDrawerOpen.value = true;
 };
 
 // 看板数据
@@ -418,10 +462,19 @@ const dashboardData = ref({
 const dailyProductionChart = ref<HTMLElement>();
 const accumulatedChart = ref<HTMLElement>();
 const defectChart = ref<HTMLElement>();
+const factory3dRef = ref<HTMLElement>();
 
 let dailyChartInstance: echarts.ECharts | null = null;
 let accumulatedChartInstance: echarts.ECharts | null = null;
 let defectChartInstance: echarts.ECharts | null = null;
+
+// 工厂 3D
+let factory3dRenderer: THREE.WebGLRenderer | null = null;
+let factory3dScene: THREE.Scene | null = null;
+let factory3dCamera: THREE.OrthographicCamera | null = null;
+let factory3dControls: OrbitControls | null = null;
+let factory3dLabelRenderer: CSS2DRenderer | null = null;
+let factory3dRafId: number | null = null;
 
 // SSE 连接
 let eventSource: EventSource | null = null;
@@ -655,11 +708,247 @@ const initAllCharts = () => {
     });
 };
 
+const GLB_URL = '/工厂3d模型.glb';
+
+function createWorkshopMarker(key: WorkshopKey, position: THREE.Vector3) {
+    const el = document.createElement('div');
+    el.className = 'factory-workshop-marker';
+    el.textContent = String(key);
+    el.title = workshopMap[key].name;
+    // 标签 DOM 放在 2D 层上，需要允许点击，同时不影响 OrbitControls
+    el.style.pointerEvents = 'auto';
+    el.addEventListener('pointerdown', e => e.stopPropagation());
+    el.addEventListener('click', e => {
+        e.stopPropagation();
+        openWorkshopDrawer(key);
+    });
+    const label = new CSS2DObject(el);
+    label.position.copy(position);
+    return label;
+}
+
+function initFactory3d() {
+    const el = factory3dRef.value;
+    if (!el || el.offsetWidth <= 0) return;
+
+    const w = el.offsetWidth;
+    const viewH = Math.max(el.offsetHeight, 400);
+    const aspect = w / viewH;
+
+    const camera = new THREE.OrthographicCamera(-100 * aspect, 100 * aspect, 100, -100, 0.1, 1000);
+    camera.position.set(80, 60, 80);
+    camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+
+    const scene = new THREE.Scene();
+    // 取自截图的背景：深灰偏冷
+    scene.background = new THREE.Color(0x2b2f35);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    // 正确的颜色空间 + 色调映射，让 GLB 原始颜色更接近“实物”
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // 让蓝色更“亮且干净”，贴近截图的观感
+    renderer.toneMappingExposure = 1.12;
+    renderer.setSize(w, viewH);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    el.innerHTML = '';
+    el.appendChild(renderer.domElement);
+
+    // 2D 标签渲染器（序号标注）
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(w, viewH);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0';
+    labelRenderer.domElement.style.left = '0';
+    labelRenderer.domElement.style.width = '100%';
+    labelRenderer.domElement.style.height = '100%';
+    // 需要支持点击序号，所以这一层必须接收事件
+    labelRenderer.domElement.style.pointerEvents = 'auto';
+    labelRenderer.domElement.style.zIndex = '10';
+    el.appendChild(labelRenderer.domElement);
+
+    // 添加光源（实心建筑需要充足光照）
+    // 取自截图的冷色调：主体更蓝，高光更青
+    const hemiLight = new THREE.HemisphereLight(0xaadfff, 0x2b2f35, 0.75);
+    hemiLight.position.set(0, 80, 0);
+    scene.add(hemiLight);
+
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.05);
+    keyLight.position.set(80, 90, 60);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x64d9ff, 0.55);
+    fillLight.position.set(-90, 40, -80);
+    scene.add(fillLight);
+
+    // 背后加一盏“轮廓光”，让边缘更接近截图的青色描边效果（不改模型材质）
+    const rimLight = new THREE.DirectionalLight(0x46c7ff, 0.45);
+    rimLight.position.set(-20, 30, 120);
+    scene.add(rimLight);
+
+    // 绑定到 2D 标签层：拖拽旋转/缩放不受 overlay 影响；marker 自己 stopPropagation
+    const controls = new OrbitControls(camera, labelRenderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.minDistance = 30;
+    controls.maxDistance = 200;
+    controls.target.set(0, 0, 0);
+
+    factory3dRenderer = renderer;
+    factory3dScene = scene;
+    factory3dCamera = camera;
+    factory3dControls = controls;
+    factory3dLabelRenderer = labelRenderer;
+
+    const loader = new GLTFLoader();
+    loader.load(
+        GLB_URL,
+        (gltf: { scene: THREE.Group }) => {
+            const model = gltf.scene;
+
+            // 使用模型自带材质/贴图（还原“模型本身颜色”），仅确保不透明并开启正确更新
+            model.traverse((child: THREE.Object3D) => {
+                const mesh = child as THREE.Mesh;
+                if (mesh.isMesh && mesh.geometry && mesh.material) {
+                    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                    materials.forEach((mat: THREE.Material) => {
+                        // 避免上一次“线框/透明”改动导致的发黑/缺失
+                        if ('opacity' in mat) (mat as THREE.Material & { opacity?: number }).opacity = 1;
+                        if ('transparent' in mat)
+                            (mat as THREE.Material & { transparent?: boolean }).transparent = false;
+                        mat.needsUpdate = true;
+                    });
+                }
+            });
+
+            scene.add(model);
+
+            const box = new THREE.Box3().setFromObject(model);
+            const center = new THREE.Vector3();
+            const size = new THREE.Vector3();
+            box.getCenter(center);
+            box.getSize(size);
+            model.position.sub(center);
+
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = maxDim > 0 ? 80 / maxDim : 1;
+            model.scale.setScalar(scale);
+
+            // 车间序号（1~5）：贴在模型表面（raycast 从上往下命中表面）
+            const box2 = new THREE.Box3().setFromObject(model);
+            const size2 = new THREE.Vector3();
+            box2.getSize(size2);
+            const min = box2.min;
+            const max = box2.max;
+            const rayStartY = max.y + size2.y * 0.2;
+            const rayEpsilon = Math.max(size2.y * 0.002, 0.02);
+            const raycaster = new THREE.Raycaster();
+            const down = new THREE.Vector3(0, -1, 0);
+
+            const hitTargets: THREE.Object3D[] = [];
+            model.traverse(obj => {
+                if ((obj as THREE.Mesh).isMesh) hitTargets.push(obj);
+            });
+
+            function placeMarkerOnSurface(key: WorkshopKey, x: number, z: number) {
+                raycaster.set(new THREE.Vector3(x, rayStartY, z), down);
+                const hits = raycaster.intersectObjects(hitTargets, true);
+                if (hits.length > 0) {
+                    const hit = hits[0];
+                    if (!hit) return;
+                    const p = hit.point.clone();
+                    if (hit.face?.normal) {
+                        const n = hit.face.normal.clone().transformDirection((hit.object as THREE.Mesh).matrixWorld);
+                        p.addScaledVector(n, rayEpsilon);
+                    } else {
+                        p.y += rayEpsilon;
+                    }
+                    scene.add(createWorkshopMarker(key, p));
+                    return;
+                }
+                scene.add(createWorkshopMarker(key, new THREE.Vector3(x, max.y + rayEpsilon, z)));
+            }
+
+            const markerPositions: Record<WorkshopKey, THREE.Vector3> = {
+                1: new THREE.Vector3(min.x + size2.x * 0.28, 0, min.z + size2.z * 0.22),
+                2: new THREE.Vector3(min.x + size2.x * 0.3, 0, max.z - size2.z * 0.22),
+                3: new THREE.Vector3(max.x - size2.x * 0.22, 0, min.z + size2.z * 0.2),
+                4: new THREE.Vector3(max.x - size2.x * 0.22, 0, min.z + size2.z * 0.55),
+                5: new THREE.Vector3(max.x - size2.x * 0.22, 0, max.z - size2.z * 0.22),
+            };
+            (Object.keys(markerPositions) as unknown as WorkshopKey[]).forEach(k => {
+                const p = markerPositions[k];
+                placeMarkerOnSurface(k, p.x, p.z);
+            });
+
+            controls.target.set(0, 0, 0);
+            const d = Math.max(size.x, size.z) * scale * 0.8;
+            camera.position.set(d, d * 0.8, d);
+            camera.lookAt(0, 0, 0);
+        },
+        undefined,
+        () => {
+            // 加载失败时保留空场景
+        }
+    );
+
+    function animate() {
+        factory3dRafId = requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+        labelRenderer.render(scene, camera);
+    }
+    animate();
+}
+
+function disposeFactory3d() {
+    if (factory3dRafId != null) {
+        cancelAnimationFrame(factory3dRafId);
+        factory3dRafId = null;
+    }
+    factory3dControls?.dispose();
+    factory3dControls = null;
+    if (factory3dLabelRenderer) {
+        factory3dLabelRenderer.domElement?.remove();
+        factory3dLabelRenderer = null;
+    }
+    factory3dScene?.traverse((obj: THREE.Object3D) => {
+        const o = obj as THREE.Mesh & { material?: THREE.Material | THREE.Material[] };
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) {
+            Array.isArray(o.material)
+                ? (o.material as THREE.Material[]).forEach((m: THREE.Material) => m.dispose())
+                : (o.material as THREE.Material).dispose();
+        }
+    });
+    factory3dScene?.clear();
+    factory3dScene = null;
+    factory3dCamera = null;
+    if (factory3dRenderer) {
+        factory3dRenderer.domElement?.remove();
+        factory3dRenderer.dispose();
+        factory3dRenderer = null;
+    }
+}
+
 // 窗口大小改变时重新调整图表
 const handleResize = () => {
     if (dailyChartInstance) dailyChartInstance.resize();
     if (accumulatedChartInstance) accumulatedChartInstance.resize();
     if (defectChartInstance) defectChartInstance.resize();
+    if (factory3dRef.value && factory3dRenderer && factory3dCamera) {
+        const w = factory3dRef.value.offsetWidth;
+        const h = Math.max(factory3dRef.value.offsetHeight, 400);
+        const aspect = w / h;
+        factory3dCamera.left = -100 * aspect;
+        factory3dCamera.right = 100 * aspect;
+        factory3dCamera.top = 100;
+        factory3dCamera.bottom = -100;
+        factory3dCamera.updateProjectionMatrix();
+        factory3dRenderer.setSize(w, h);
+        factory3dLabelRenderer?.setSize(w, h);
+    }
 };
 
 // 初始化 SSE 连接
@@ -718,6 +1007,11 @@ onMounted(() => {
     setInterval(updateTime, 1000); // 每秒更新一次时间
 
     initAllCharts();
+    nextTick(() => {
+        setTimeout(() => {
+            initFactory3d();
+        }, 250);
+    });
     window.addEventListener('resize', handleResize);
 
     // 初始化 SSE 连接
@@ -732,6 +1026,8 @@ onBeforeUnmount(() => {
         eventSource.close();
         eventSource = null;
     }
+
+    disposeFactory3d();
 
     // 销毁图表实例
     if (dailyChartInstance) {
@@ -1287,6 +1583,137 @@ onBeforeUnmount(() => {
     box-shadow:
         0 0 15px rgba(79, 195, 247, 0.15),
         inset 0 0 30px rgba(79, 195, 247, 0.08);
+}
+
+.factory-3d-canvas {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    display: block;
+    position: relative;
+}
+
+.factory-3d-canvas canvas {
+    display: block;
+}
+
+.factory-side-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: 360px;
+    background: rgba(11, 22, 35, 0.92);
+    border: 1px solid rgba(79, 195, 247, 0.35);
+    box-shadow:
+        0 0 18px rgba(79, 195, 247, 0.18),
+        inset 0 0 22px rgba(79, 195, 247, 0.08);
+    border-radius: 8px;
+    z-index: 20;
+    overflow: hidden;
+    pointer-events: auto;
+}
+
+.factory-side-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid rgba(79, 195, 247, 0.25);
+}
+
+.factory-side-title {
+    color: rgba(116, 232, 255, 0.95);
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    text-shadow: 0 0 10px rgba(79, 195, 247, 0.35);
+}
+
+.factory-side-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid rgba(79, 195, 247, 0.35);
+    background: rgba(0, 0, 0, 0.25);
+    color: rgba(255, 255, 255, 0.85);
+    cursor: pointer;
+    line-height: 26px;
+    text-align: center;
+    padding: 0;
+}
+
+.factory-side-close:hover {
+    border-color: rgba(79, 195, 247, 0.6);
+    box-shadow: 0 0 10px rgba(79, 195, 247, 0.25);
+}
+
+.factory-side-content {
+    padding: 12px 14px 14px;
+    height: calc(100% - 54px);
+    overflow: auto;
+}
+
+.factory-side-section {
+    padding: 12px 10px;
+    border-left: 3px solid rgba(79, 195, 247, 0.55);
+    background: rgba(7, 14, 24, 0.55);
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.factory-side-label {
+    color: rgba(79, 195, 247, 0.95);
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.factory-side-value {
+    color: rgba(230, 250, 255, 0.88);
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.factory-workshop-marker {
+    width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+    color: rgba(0, 0, 0, 0.78);
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(79, 195, 247, 0.7);
+    box-shadow:
+        0 0 0 2px rgba(0, 0, 0, 0.15),
+        0 0 12px rgba(79, 195, 247, 0.35);
+    cursor: pointer;
+    user-select: none;
+}
+
+.factory-workshop-marker:hover {
+    transform: scale(1.06);
+    box-shadow:
+        0 0 0 2px rgba(0, 0, 0, 0.15),
+        0 0 16px rgba(79, 195, 247, 0.55);
+}
+
+.workshop-drawer-body {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.workshop-drawer-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 10px;
+}
+
+.workshop-drawer-list {
+    padding-left: 18px;
+    margin: 0;
 }
 
 .factory-wireframe {
