@@ -2,7 +2,7 @@
     <div class="bg-[#f0f2f5]">
         <a-card class="mb-4" :bordered="false">
             <a-form :model="searchForm" layout="inline">
-                <a-form-item label="入库单号">
+                <a-form-item label="入库编号">
                     <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item label="物料名称">
@@ -10,8 +10,14 @@
                 </a-form-item>
                 <a-form-item>
                     <a-space>
-                        <a-button type="primary" @click="handleSearch">查询</a-button>
-                        <a-button @click="handleReset">重置</a-button>
+                        <a-button type="primary" @click="handleSearch">
+                            <template #icon><SearchOutlined /></template>
+                            查询
+                        </a-button>
+                        <a-button @click="handleReset">
+                            <template #icon><ReloadOutlined /></template>
+                            重置
+                        </a-button>
                     </a-space>
                 </a-form-item>
             </a-form>
@@ -19,7 +25,10 @@
 
         <a-card class="mb-4" :bordered="false">
             <a-space>
-                <a-button type="primary" @click="noop">新增</a-button>
+                <a-button type="primary" @click="noop">
+                    <template #icon><PlusOutlined /></template>
+                    新增
+                </a-button>
                 <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
@@ -39,8 +48,10 @@
                 <template #bodyCell="{ column }">
                     <template v-if="column.key === 'action'">
                         <a-space>
-                            <a @click="noop">详情</a>
+                            <a @click="noop">物料管理</a>
+                            <span>|</span>
                             <a @click="noop">编辑</a>
+                            <span>|</span>
                             <a style="color: #ff4d4f" @click="noop">删除</a>
                         </a-space>
                     </template>
@@ -57,7 +68,11 @@
                     :page-size-options="['15', '30', '50', '100']"
                     @change="handlePageChange"
                     @showSizeChange="handlePageSizeChange"
-                />
+                >
+                    <template #buildOptionText="props">
+                        <span>{{ props.value }}条/页</span>
+                    </template>
+                </a-pagination>
                 <a-space class="flex items-center gap-2">
                     <span>跳至</span>
                     <a-input-number v-model:value="jumpPage" :min="1" :max="maxPage" style="width: 80px" />
@@ -72,15 +87,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { PlusOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-vue';
 
 type Row = {
     id: number;
     code: string;
-    name: string;
-    quantity: number;
-    status: string;
+    orderName: string;
     inboundDate: string;
-    creator: string;
+    supplier: string;
+    inboundPerson: string;
+    remark: string;
 };
 
 const searchForm = reactive({ code: '', name: '' });
@@ -97,31 +113,52 @@ const columns = [
         width: 60,
         customRender: ({ index }: { index: number }) => (pagination.current - 1) * pagination.pageSize + index + 1,
     },
-    { title: '入库单号', dataIndex: 'code', key: 'code', width: 180 },
-    { title: '物料名称', dataIndex: 'name', key: 'name', width: 220 },
-    { title: '入库数量', dataIndex: 'quantity', key: 'quantity', width: 120 },
-    { title: '入库状态', dataIndex: 'status', key: 'status', width: 120 },
-    { title: '入库日期', dataIndex: 'inboundDate', key: 'inboundDate', width: 180 },
-    { title: '创建人', dataIndex: 'creator', key: 'creator', width: 120 },
-    { title: '操作', key: 'action', width: 180, fixed: 'right' },
+    { title: '入库编号', dataIndex: 'code', key: 'code', width: 160 },
+    { title: '入库单名称', dataIndex: 'orderName', key: 'orderName', width: 140 },
+    { title: '入库日期', dataIndex: 'inboundDate', key: 'inboundDate', width: 120 },
+    { title: '供应商名称', dataIndex: 'supplier', key: 'supplier', width: 160 },
+    { title: '入库人', dataIndex: 'inboundPerson', key: 'inboundPerson', width: 100 },
+    { title: '备注', dataIndex: 'remark', key: 'remark', width: 100 },
+    { title: '操作', key: 'action', width: 200, fixed: 'right' },
 ];
 
+const allData = ref<Row[]>([]);
 const tableData = ref<Row[]>([]);
 
+const suppliers = ['名博原料有限公司', '华盛材料有限公司', '优品供应链'];
+const persons = ['李红', '王明', '张伟'];
+
+const orderNames = ['产品原料入库', '半成品入库', '成品入库'];
 const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
     id: i + 1,
-    code: `RKDH${String(i + 1).padStart(10, '0')}`,
-    name: `物料${i + 1}`,
-    quantity: Math.floor(Math.random() * 100),
-    status: '已入库',
-    inboundDate: '2025.04.24',
-    creator: '李红',
+    code: `RKBH${String(i + 1).padStart(10, '0')}`,
+    orderName: orderNames[i % 3],
+    inboundDate: '2025.02.20',
+    supplier: suppliers[i % 3],
+    inboundPerson: persons[i % 3],
+    remark: '无',
 }));
 
+const filterData = () => {
+    let list = [...mock];
+    if (searchForm.code.trim()) {
+        const q = searchForm.code.trim().toLowerCase();
+        list = list.filter(r => r.code.toLowerCase().includes(q));
+    }
+    if (searchForm.name.trim()) {
+        const q = searchForm.name.trim();
+        list = list.filter(r => r.orderName.includes(q));
+    }
+    return list;
+};
+
 const loadData = () => {
+    const filtered = filterData();
+    pagination.total = filtered.length;
     const start = (pagination.current - 1) * pagination.pageSize;
     const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+    allData.value = filtered;
+    tableData.value = filtered.slice(start, end);
 };
 
 const onSelectChange = (keys: number[]) => {

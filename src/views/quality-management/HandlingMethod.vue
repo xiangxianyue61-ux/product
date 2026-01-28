@@ -36,7 +36,7 @@
                 :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
                 row-key="id"
             >
-                <template #bodyCell="{ column, record }">
+                <template #bodyCell="{ column }">
                     <template v-if="column.key === 'action'">
                         <a-space>
                             <a @click="noop">详情</a>

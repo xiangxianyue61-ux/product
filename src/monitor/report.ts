@@ -8,6 +8,7 @@ export function reportApi(data: ApiMonitor) {
     }
     // 失败请求直接上报
     if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
         console.log('[API Monitor]', data);
         return;
     }

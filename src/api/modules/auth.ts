@@ -21,7 +21,7 @@ export function profile() {
     });
 }
 //修改个人中心信息
-export function updateProfile(params: any) {
+export function updateProfile(params: Record<string, unknown>) {
     return http.post('/xx/completesetup', params, {
         meta: {
             action: 'user_update_profile',

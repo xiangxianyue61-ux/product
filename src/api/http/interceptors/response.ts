@@ -1,9 +1,10 @@
+import type { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 import { reportApi } from '../../../monitor/report';
 import { refreshToken } from '../refresh';
 
-export function setupResponseInterceptor(instance: any) {
+export function setupResponseInterceptor(instance: AxiosInstance) {
     instance.interceptors.response.use(
-        (res: any) => {
+        (res: AxiosResponse) => {
             const m = res.config.metadata;
             if (m) {
                 const end = Date.now();
@@ -17,7 +18,7 @@ export function setupResponseInterceptor(instance: any) {
             }
             return res;
         },
-        async (err: any) => {
+        async (err: AxiosError) => {
             const config = err.config;
             const m = config?.metadata;
             if (m) {
