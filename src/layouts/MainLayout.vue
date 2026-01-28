@@ -20,7 +20,8 @@
                 </a-menu>
             </div>
             <div class="flex items-center">
-                <a-space size="middle">
+                <a-space size="middle" align="center">
+                    <a-button type="text" :icon="h(DesktopOutlined)" title="数据看板" @click="router.push('/data')" />
                     <a-button type="text" :icon="h(BellOutlined)" />
                     <a-button type="text" :icon="h(MessageOutlined)" />
                     <a-button type="text" :icon="h(FullscreenOutlined)" />
@@ -88,7 +89,7 @@
 <script setup lang="ts">
 import { ref, computed, h, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { BellOutlined, MessageOutlined, FullscreenOutlined } from '@ant-design/icons-vue';
+import { BellOutlined, MessageOutlined, FullscreenOutlined, DesktopOutlined } from '@ant-design/icons-vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -287,6 +288,7 @@ const processManagementMenu: SideMenuItem[] = [
     { key: 'process-model', title: '流程模型', route: '/process-management/process-model' },
     { key: 'business-form', title: '业务表单', route: '/process-management/business-form' },
     { key: 'form-config', title: '表单配置', route: '/process-management/form-config' },
+    { key: 'route-data', title: '路由数据', route: '/process-management/route-data' },
 ];
 
 const systemSettingsMenu: SideMenuItem[] = [
@@ -423,16 +425,17 @@ const handleTopMenuClick = (e: { key: string }) => {
     }
 };
 
-// 处理侧边栏菜单点击
+// 处理侧边栏菜单点击（扁平项 key 为 item-xxx，子项为 child.key，需统一匹配）
 const handleSideMenuClick = (e: { key: string }) => {
+    const rawKey = e.key.startsWith('item-') ? e.key.slice(5) : e.key;
     const findRoute = (groups: SideMenuItem[]): string | null => {
         for (const group of groups) {
-            if (group.key === e.key && group.route) {
+            if (group.key === rawKey && group.route) {
                 return group.route;
             }
             if (group.children) {
                 for (const child of group.children) {
-                    if (child.key === e.key) {
+                    if (child.key === rawKey) {
                         return child.route ?? null;
                     }
                 }

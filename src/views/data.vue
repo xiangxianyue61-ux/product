@@ -13,7 +13,7 @@
                 <!-- 1. 当日产量 -->
                 <div class="card production-card">
                     <div class="card-left">
-                        <div class="card-title">| 当日产量</div>
+                        <div class="card-title">当日产量</div>
                         <div class="digital-display-segmented">
                             <div
                                 v-for="(digit, index) in formatNumber(dashboardData.dailyProduction).split('')"
@@ -141,114 +141,12 @@
 
                 <!-- 工厂布局图 -->
                 <div class="factory-diagram">
-                    <div class="factory-wireframe">
-                        <!-- 3D wireframe 工厂图 -->
-                        <svg width="100%" height="100%" viewBox="0 0 800 600" class="factory-svg">
-                            <!-- 建筑物1 -->
-                            <rect
-                                x="50"
-                                y="200"
-                                width="150"
-                                height="200"
-                                fill="none"
-                                stroke="#4fc3f7"
-                                stroke-width="2"
-                                opacity="0.6"
-                            />
-                            <rect
-                                x="60"
-                                y="210"
-                                width="130"
-                                height="180"
-                                fill="none"
-                                stroke="#4fc3f7"
-                                stroke-width="1"
-                                opacity="0.4"
-                            />
-                            <line x1="50" y1="200" x2="100" y2="150" stroke="#4fc3f7" stroke-width="2" opacity="0.6" />
-                            <line x1="200" y1="200" x2="250" y2="150" stroke="#4fc3f7" stroke-width="2" opacity="0.6" />
-
-                            <!-- 建筑物2 -->
-                            <rect
-                                x="250"
-                                y="150"
-                                width="200"
-                                height="250"
-                                fill="none"
-                                stroke="#4fc3f7"
-                                stroke-width="2"
-                                opacity="0.6"
-                            />
-                            <rect
-                                x="260"
-                                y="160"
-                                width="180"
-                                height="230"
-                                fill="none"
-                                stroke="#4fc3f7"
-                                stroke-width="1"
-                                opacity="0.4"
-                            />
-                            <line x1="250" y1="150" x2="300" y2="100" stroke="#4fc3f7" stroke-width="2" opacity="0.6" />
-                            <line x1="450" y1="150" x2="500" y2="100" stroke="#4fc3f7" stroke-width="2" opacity="0.6" />
-
-                            <!-- 建筑物3 -->
-                            <rect
-                                x="500"
-                                y="250"
-                                width="180"
-                                height="150"
-                                fill="none"
-                                stroke="#4fc3f7"
-                                stroke-width="2"
-                                opacity="0.6"
-                            />
-                            <rect
-                                x="510"
-                                y="260"
-                                width="160"
-                                height="130"
-                                fill="none"
-                                stroke="#4fc3f7"
-                                stroke-width="1"
-                                opacity="0.4"
-                            />
-
-                            <!-- 连接线 -->
-                            <line x1="200" y1="300" x2="250" y2="275" stroke="#4fc3f7" stroke-width="1" opacity="0.5" />
-                            <line x1="450" y1="275" x2="500" y2="325" stroke="#4fc3f7" stroke-width="1" opacity="0.5" />
-
-                            <!-- 生产流水线 -->
-                            <path
-                                d="M 50 400 L 250 400 L 450 375 L 680 400"
-                                fill="none"
-                                stroke="#4fc3f7"
-                                stroke-width="2"
-                                opacity="0.6"
-                                stroke-dasharray="5,5"
-                            />
-
-                            <!-- 网格背景 -->
-                            <defs>
-                                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                                    <path
-                                        d="M 40 0 L 0 0 0 40"
-                                        fill="none"
-                                        stroke="#4fc3f7"
-                                        stroke-width="0.5"
-                                        opacity="0.2"
-                                    />
-                                </pattern>
-                            </defs>
-                            <rect width="100%" height="100%" fill="url(#grid)" />
-                        </svg>
-                    </div>
-                    <div class="factory-label">工厂布局示意图</div>
+                    <img src="../../public/1.jpg" alt="" />
                 </div>
 
                 <!-- 今日生产进度 -->
                 <div class="card progress-card">
-                    <div class="card-title">| 今日生产进度</div>
+                    <div class="card-title">今日生产进度</div>
                     <div class="progress-table">
                         <table>
                             <thead>
@@ -422,8 +320,8 @@ const dashboardData = ref({
     completionRate: 88.9,
     dailyProductionData: [
         { name: '笔记本', value: 200, color: '#4CAF50' },
-        { name: '屏幕', value: 180, color: '#1a237e' },
-        { name: '主板', value: 150, color: '#2196F3' },
+        { name: '屏幕', value: 180, color: '#2196F3' },
+        { name: '主板', value: 150, color: '#00BCD4' },
         { name: '键盘', value: 158, color: '#FFC107' },
     ],
     accumulatedProduction: 24039,
@@ -553,7 +451,10 @@ const initDailyProductionChart = () => {
         if (dailyChartInstance) {
             dailyChartInstance.dispose();
         }
-        dailyChartInstance = echarts.init(dailyProductionChart.value);
+        dailyChartInstance = echarts.init(dailyProductionChart.value, null, {
+            width: 160,
+            height: 160,
+        });
         const data = dashboardData.value.dailyProductionData;
         const maxValue = Math.max(...data.map(item => item.value));
 
@@ -575,7 +476,13 @@ const initDailyProductionChart = () => {
                     borderWidth: 0,
                 },
                 label: {
-                    show: false,
+                    show: true,
+                    position: 'left',
+                    formatter: item.name,
+                    color: '#ffffff',
+                    fontSize: 12,
+                    fontWeight: 400,
+                    distance: 10,
                 },
                 labelLine: {
                     show: false,
@@ -599,9 +506,16 @@ const initDailyProductionChart = () => {
         });
 
         const option = {
+            backgroundColor: 'transparent',
             tooltip: {
                 trigger: 'item',
                 formatter: '{b}: {c} ({d}%)',
+                backgroundColor: 'rgba(5, 15, 30, 0.95)',
+                borderColor: 'rgba(79, 195, 247, 0.5)',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#ffffff',
+                },
             },
             legend: {
                 show: false,
@@ -618,11 +532,21 @@ const initAccumulatedChart = () => {
         if (accumulatedChartInstance) {
             accumulatedChartInstance.dispose();
         }
-        accumulatedChartInstance = echarts.init(accumulatedChart.value);
+        accumulatedChartInstance = echarts.init(accumulatedChart.value, null, {
+            width: 140,
+            height: 140,
+        });
         const option = {
+            backgroundColor: 'transparent',
             tooltip: {
                 trigger: 'item',
                 formatter: '{b}: {c} ({d}%)',
+                backgroundColor: 'rgba(5, 15, 30, 0.95)',
+                borderColor: 'rgba(79, 195, 247, 0.5)',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#ffffff',
+                },
             },
             legend: {
                 show: false,
@@ -664,11 +588,21 @@ const initDefectChart = () => {
         if (defectChartInstance) {
             defectChartInstance.dispose();
         }
-        defectChartInstance = echarts.init(defectChart.value);
+        defectChartInstance = echarts.init(defectChart.value, null, {
+            width: 160,
+            height: 160,
+        });
         const option = {
+            backgroundColor: 'transparent',
             tooltip: {
                 trigger: 'item',
                 formatter: '{b}: {c} ({d}%)',
+                backgroundColor: 'rgba(5, 15, 30, 0.95)',
+                borderColor: 'rgba(79, 195, 247, 0.5)',
+                borderWidth: 1,
+                textStyle: {
+                    color: '#ffffff',
+                },
             },
             legend: {
                 show: false,
@@ -823,7 +757,7 @@ onBeforeUnmount(() => {
 .dashboard-wrapper {
     background: #0a0e27;
     min-height: 100vh;
-    width: 100vw;
+    width: 100%;
     padding: 16px;
     color: #ffffff;
     position: relative;
@@ -833,21 +767,44 @@ onBeforeUnmount(() => {
 }
 
 .dashboard-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    position: relative;
     padding: 12px 0;
     margin-bottom: 12px;
+    text-align: center;
 }
 
 .dashboard-title {
-    font-size: 36px;
+    font-size: 42px;
     font-weight: 700;
     color: #4fc3f7;
     margin: 0;
-    letter-spacing: 3px;
-    flex: 1;
+    letter-spacing: 4px;
     text-align: center;
+    display: inline-block;
+    text-shadow:
+        0 0 15px rgba(79, 195, 247, 0.8),
+        0 0 30px rgba(79, 195, 247, 0.5),
+        0 0 45px rgba(79, 195, 247, 0.3);
+    position: relative;
+}
+
+.dashboard-title::before,
+.dashboard-title::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 60px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(79, 195, 247, 0.6), transparent);
+    transform: translateY(-50%);
+}
+
+.dashboard-title::before {
+    left: calc(50% - 200px);
+}
+
+.dashboard-title::after {
+    right: calc(50% - 200px);
 }
 
 .current-time {
@@ -856,6 +813,11 @@ onBeforeUnmount(() => {
     font-family: 'Courier New', monospace;
     font-weight: 400;
     white-space: nowrap;
+    opacity: 0.9;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
 }
 
 .dashboard-content {
@@ -880,10 +842,13 @@ onBeforeUnmount(() => {
 }
 
 .card {
-    background: rgba(10, 14, 39, 0.9);
-    border: 1px solid rgba(79, 195, 247, 0.3);
+    background: rgb(1, 47, 82);
+    border: none;
     border-radius: 2px;
     padding: 14px;
+    box-shadow:
+        0 0 10px rgba(79, 195, 247, 0.1),
+        inset 0 0 20px rgba(79, 195, 247, 0.05);
 }
 
 .card-title {
@@ -892,6 +857,35 @@ onBeforeUnmount(() => {
     font-weight: 500;
     margin-bottom: 12px;
     letter-spacing: 0.5px;
+    opacity: 0.9;
+}
+
+.progress-card .card-title {
+    text-align: center;
+    color: rgba(210, 245, 255, 0.95);
+    font-weight: 600;
+    letter-spacing: 1px;
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.progress-card .card-title::before,
+.progress-card .card-title::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 120px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(79, 195, 247, 0.55), transparent);
+    transform: translateY(-50%);
+}
+
+.progress-card .card-title::before {
+    left: 18px;
+}
+
+.progress-card .card-title::after {
+    right: 18px;
 }
 
 .production-card {
@@ -933,30 +927,34 @@ onBeforeUnmount(() => {
 .digital-display-segmented {
     display: flex;
     align-items: stretch;
-    gap: 0;
+    gap: 2px;
     margin: 8px 0;
     max-width: 100%;
     overflow: hidden;
-    background: rgba(10, 20, 40, 0.8);
-    border: 1px solid rgba(79, 195, 247, 0.15);
-    border-radius: 3px;
-    padding: 2px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: none;
 }
 
 .digit-panel {
     flex: 1;
     min-width: 0;
-    background: rgba(5, 15, 30, 0.9);
-    border-right: 1px solid rgba(79, 195, 247, 0.25);
+    background: rgba(10, 20, 40, 0.95);
+    border: 1px solid rgba(79, 195, 247, 0.3);
     padding: 10px 6px;
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
+    box-shadow:
+        inset 0 0 8px rgba(0, 0, 0, 0.5),
+        0 0 4px rgba(79, 195, 247, 0.2);
 }
 
 .digit-panel:last-child {
-    border-right: none;
+    border-right: 1px solid rgba(79, 195, 247, 0.3);
 }
 
 .digit-value {
@@ -967,10 +965,24 @@ onBeforeUnmount(() => {
     line-height: 1;
     display: block;
     letter-spacing: 0;
+    text-shadow:
+        0 0 8px rgba(79, 195, 247, 0.8),
+        0 0 16px rgba(79, 195, 247, 0.4);
+}
+
+.accumulated-display .digit-panel {
+    background: rgba(5, 15, 30, 0.95);
+    border: 1px solid rgba(79, 195, 247, 0.2);
+    box-shadow:
+        inset 0 0 8px rgba(0, 0, 0, 0.6),
+        0 0 4px rgba(79, 195, 247, 0.15);
 }
 
 .accumulated-digit {
     color: #ffc107;
+    text-shadow:
+        0 0 8px rgba(255, 193, 7, 0.8),
+        0 0 16px rgba(255, 193, 7, 0.4);
 }
 
 .info-row {
@@ -987,7 +999,7 @@ onBeforeUnmount(() => {
 .info-label {
     color: #ffffff;
     font-size: 14px;
-    opacity: 0.8;
+    opacity: 0.75;
 }
 
 .info-value {
@@ -997,7 +1009,7 @@ onBeforeUnmount(() => {
 }
 
 .progress-value {
-    color: #ffc107;
+    color: #4fc3f7;
 }
 
 .card-right {
@@ -1014,10 +1026,21 @@ onBeforeUnmount(() => {
     min-width: 160px;
     min-height: 160px;
     position: relative;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .chart-container canvas {
     display: block !important;
+    border-radius: 4px;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .chart-legend {
@@ -1068,10 +1091,21 @@ onBeforeUnmount(() => {
     flex-shrink: 0;
     position: relative;
     align-self: flex-start;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    padding: 10px;
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .chart-container-small canvas {
     display: block !important;
+    border-radius: 4px;
+    width: 100% !important;
+    height: 100% !important;
 }
 
 .product-list {
@@ -1088,7 +1122,10 @@ onBeforeUnmount(() => {
     gap: 8px;
     color: #ffffff;
     font-size: 12px;
-    padding: 3px 0;
+    padding: 6px 8px;
+    background: rgba(20, 30, 50, 0.8);
+    border-radius: 3px;
+    border: none;
 }
 
 .product-bar {
@@ -1100,7 +1137,7 @@ onBeforeUnmount(() => {
 
 .product-name {
     color: #ffffff;
-    opacity: 0.9;
+    opacity: 0.8;
     font-size: 12px;
     min-width: 70px;
 }
@@ -1125,15 +1162,18 @@ onBeforeUnmount(() => {
     align-items: center;
     gap: 6px;
     padding: 10px;
-    background: rgba(79, 195, 247, 0.05);
+    background: rgba(20, 30, 50, 0.8);
     border-radius: 4px;
-    border: 1px solid rgba(79, 195, 247, 0.15);
+    border: none;
+    box-shadow:
+        inset 0 0 10px rgba(79, 195, 247, 0.08),
+        0 0 5px rgba(79, 195, 247, 0.05);
 }
 
 .in-out-label {
     color: #ffffff;
     font-size: 13px;
-    opacity: 0.9;
+    opacity: 0.8;
 }
 
 .in-out-value {
@@ -1145,7 +1185,7 @@ onBeforeUnmount(() => {
 .in-out-monthly {
     color: #ffffff;
     font-size: 11px;
-    opacity: 0.7;
+    opacity: 0.65;
 }
 
 .defect-list {
@@ -1158,7 +1198,10 @@ onBeforeUnmount(() => {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 4px 0;
+    padding: 6px 10px;
+    background: rgba(20, 30, 50, 0.8);
+    border-radius: 3px;
+    border: none;
 }
 
 .defect-dot {
@@ -1171,10 +1214,11 @@ onBeforeUnmount(() => {
 .defect-label {
     color: #ffffff;
     font-size: 13px;
+    opacity: 0.85;
 }
 
 .defect-value {
-    color: #ffc107;
+    color: #ff9800;
     font-size: 16px;
     font-weight: 700;
     margin-left: auto;
@@ -1189,41 +1233,50 @@ onBeforeUnmount(() => {
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: 50px;
+    gap: 40px;
     background: transparent;
     border: none;
     border-radius: 0;
-    padding: 12px 0;
+    padding: 12px 0 14px;
     margin-bottom: 12px;
     width: 100%;
+    box-shadow: none;
 }
 
 .kpi-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+    border: none;
 }
 
 .kpi-value {
-    font-size: 48px;
+    font-size: 38px;
     font-weight: 700;
-    color: #4fc3f7;
+    color: #35d7ff;
     line-height: 1;
     letter-spacing: 1px;
+    text-shadow:
+        0 0 8px rgba(79, 195, 247, 0.7),
+        0 0 16px rgba(79, 195, 247, 0.35);
 }
 
 .kpi-label {
-    font-size: 14px;
-    color: #ffffff;
+    font-size: 13px;
+    color: rgba(185, 235, 255, 0.9);
     opacity: 0.9;
     font-weight: 400;
-    margin-top: 4px;
+    margin-top: 0;
+    letter-spacing: 0.5px;
 }
 
 .factory-diagram {
-    background: rgba(10, 14, 39, 0.95);
-    border: 1px solid rgba(79, 195, 247, 0.3);
+    background: rgba(20, 30, 50, 0.9);
+    border: none;
     border-radius: 2px;
     padding: 0;
     min-height: 500px;
@@ -1231,6 +1284,9 @@ onBeforeUnmount(() => {
     flex-direction: column;
     position: relative;
     overflow: hidden;
+    box-shadow:
+        0 0 15px rgba(79, 195, 247, 0.15),
+        inset 0 0 30px rgba(79, 195, 247, 0.08);
 }
 
 .factory-wireframe {
@@ -1256,10 +1312,13 @@ onBeforeUnmount(() => {
     font-weight: 500;
     opacity: 0.9;
     z-index: 10;
-    background: rgba(10, 14, 39, 0.8);
-    padding: 4px 12px;
-    border-radius: 2px;
-    border: 1px solid rgba(79, 195, 247, 0.2);
+    background: rgba(20, 30, 50, 0.9);
+    padding: 6px 16px;
+    border-radius: 4px;
+    border: none;
+    box-shadow:
+        inset 0 0 10px rgba(79, 195, 247, 0.1),
+        0 0 8px rgba(79, 195, 247, 0.15);
 }
 
 .equipment-grid {
@@ -1269,14 +1328,17 @@ onBeforeUnmount(() => {
 }
 
 .equipment-panel {
-    background: rgba(5, 15, 30, 0.75);
-    border: 1px solid rgba(79, 195, 247, 0.3);
+    background: rgba(20, 30, 50, 0.9);
+    border: none;
     border-radius: 2px;
     padding: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
+    box-shadow:
+        inset 0 0 15px rgba(79, 195, 247, 0.1),
+        0 0 8px rgba(79, 195, 247, 0.08);
 }
 
 .equipment-icon-wrapper {
@@ -1300,6 +1362,7 @@ onBeforeUnmount(() => {
     color: #ffffff;
     font-size: 14px;
     font-weight: 400;
+    opacity: 0.85;
 }
 
 .equipment-total {
@@ -1317,6 +1380,7 @@ onBeforeUnmount(() => {
 
 .detail-label {
     color: #ffffff;
+    opacity: 0.75;
 }
 
 .detail-value {
@@ -1332,14 +1396,17 @@ onBeforeUnmount(() => {
 }
 
 .warehouse-item {
-    background: rgba(5, 15, 30, 0.75);
-    border: 1px solid rgba(79, 195, 247, 0.3);
+    background: rgba(20, 30, 50, 0.9);
+    border: none;
     border-radius: 2px;
     padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 8px;
     position: relative;
+    box-shadow:
+        inset 0 0 15px rgba(79, 195, 247, 0.1),
+        0 0 8px rgba(79, 195, 247, 0.08);
 }
 
 .warehouse-icon {
@@ -1352,6 +1419,7 @@ onBeforeUnmount(() => {
     color: #ffffff;
     font-size: 13px;
     font-weight: 400;
+    opacity: 0.8;
 }
 
 .warehouse-value {
@@ -1373,16 +1441,18 @@ onBeforeUnmount(() => {
 .warehouse-change {
     color: #ffffff;
     font-size: 11px;
-    opacity: 0.8;
+    opacity: 0.7;
 }
 
 .warehouse-progress-bar {
     width: 100%;
     height: 8px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(20, 30, 50, 0.8);
+    border: none;
     border-radius: 4px;
     overflow: hidden;
     margin-top: 4px;
+    box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.3);
 }
 
 .warehouse-progress-fill {
@@ -1410,19 +1480,25 @@ onBeforeUnmount(() => {
 }
 
 .progress-table thead {
-    background: rgba(79, 195, 247, 0.15);
-    border-bottom: 1px solid rgba(79, 195, 247, 0.3);
+    background: rgba(20, 30, 50, 0.9);
+    border-bottom: none;
+    box-shadow: inset 0 0 10px rgba(79, 195, 247, 0.1);
 }
 
 .progress-table th,
 .progress-table td {
     padding: 8px;
     text-align: left;
-    border-bottom: 1px solid rgba(79, 195, 247, 0.15);
+    border-bottom: none;
+}
+
+.progress-table tbody tr {
+    background: rgba(20, 30, 50, 0.8);
 }
 
 .progress-table tbody tr:hover {
-    background: rgba(79, 195, 247, 0.05);
+    background: rgba(79, 195, 247, 0.1);
+    box-shadow: inset 0 0 10px rgba(79, 195, 247, 0.15);
 }
 
 .progress-table th {
@@ -1430,22 +1506,26 @@ onBeforeUnmount(() => {
     font-weight: 600;
     font-size: 12px;
     padding: 8px 6px;
+    opacity: 0.95;
 }
 
 .progress-table td {
-    color: #ffffff;
+    color: rgba(185, 235, 255, 0.92);
     font-size: 12px;
     padding: 8px 6px;
     font-weight: 400;
+    opacity: 1;
 }
 
 .table-progress {
     position: relative;
     width: 100%;
     height: 20px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(20, 30, 50, 0.8);
+    border: none;
     border-radius: 10px;
     overflow: hidden;
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.3);
 }
 
 .table-progress-fill {
@@ -1479,10 +1559,14 @@ onBeforeUnmount(() => {
 
 .alarm-item {
     padding: 10px 12px;
-    background: rgba(255, 152, 0, 0.15);
+    background: rgba(20, 30, 50, 0.9);
+    border: none;
     border-left: 3px solid #ff9800;
     border-radius: 2px;
     margin-bottom: 8px;
+    box-shadow:
+        inset 0 0 10px rgba(255, 152, 0, 0.15),
+        0 0 8px rgba(255, 152, 0, 0.1);
 }
 
 .alarm-item:last-child {
@@ -1493,11 +1577,12 @@ onBeforeUnmount(() => {
     color: #ffffff;
     font-size: 14px;
     margin-bottom: 4px;
+    opacity: 0.95;
 }
 
 .alarm-time {
     color: #ffffff;
     font-size: 12px;
-    opacity: 0.7;
+    opacity: 0.65;
 }
 </style>

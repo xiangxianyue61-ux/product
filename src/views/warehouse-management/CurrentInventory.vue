@@ -10,22 +10,17 @@
                 </a-form-item>
                 <a-form-item>
                     <a-space>
-                        <a-button type="primary" @click="handleSearch">查询</a-button>
-                        <a-button @click="handleReset">重置</a-button>
+                        <a-button type="primary" @click="handleSearch">
+                            <template #icon><SearchOutlined /></template>
+                            查询
+                        </a-button>
+                        <a-button @click="handleReset">
+                            <template #icon><ReloadOutlined /></template>
+                            重置
+                        </a-button>
                     </a-space>
                 </a-form-item>
             </a-form>
-        </a-card>
-
-        <a-card class="mb-4" :bordered="false">
-            <a-space>
-                <a-button type="primary" @click="noop">新增</a-button>
-                <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
-                <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
-                <a-button @click="noop">打印</a-button>
-                <a-button @click="noop">导入</a-button>
-                <a-button @click="noop">导出</a-button>
-            </a-space>
         </a-card>
 
         <a-card :bordered="false">
@@ -35,17 +30,7 @@
                 :pagination="false"
                 :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
                 row-key="id"
-            >
-                <template #bodyCell="{ column }">
-                    <template v-if="column.key === 'action'">
-                        <a-space>
-                            <a @click="noop">详情</a>
-                            <a @click="noop">编辑</a>
-                            <a style="color: #ff4d4f" @click="noop">删除</a>
-                        </a-space>
-                    </template>
-                </template>
-            </a-table>
+            ></a-table>
 
             <div class="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                 <a-pagination
@@ -57,7 +42,11 @@
                     :page-size-options="['15', '30', '50', '100']"
                     @change="handlePageChange"
                     @showSizeChange="handlePageSizeChange"
-                />
+                >
+                    <template #buildOptionText="props">
+                        <span>{{ props.value }}条/页</span>
+                    </template>
+                </a-pagination>
                 <a-space class="flex items-center gap-2">
                     <span>跳至</span>
                     <a-input-number v-model:value="jumpPage" :min="1" :max="maxPage" style="width: 80px" />
@@ -72,15 +61,22 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 
 type Row = {
     id: number;
-    code: string;
-    name: string;
+    materialCode: string;
+    materialName: string;
+    spec: string;
     quantity: number;
     unit: string;
+    batchNo: string;
     warehouse: string;
+    area: string;
     location: string;
+    workOrder: string;
+    inboundDate: string;
+    expiryDate: string;
 };
 
 const searchForm = reactive({ code: '', name: '' });
@@ -97,31 +93,78 @@ const columns = [
         width: 60,
         customRender: ({ index }: { index: number }) => (pagination.current - 1) * pagination.pageSize + index + 1,
     },
-    { title: '物料编号', dataIndex: 'code', key: 'code', width: 180 },
-    { title: '物料名称', dataIndex: 'name', key: 'name', width: 220 },
-    { title: '库存数量', dataIndex: 'quantity', key: 'quantity', width: 120 },
-    { title: '单位', dataIndex: 'unit', key: 'unit', width: 80 },
-    { title: '所属仓库', dataIndex: 'warehouse', key: 'warehouse', width: 150 },
-    { title: '库位', dataIndex: 'location', key: 'location', width: 150 },
-    { title: '操作', key: 'action', width: 180, fixed: 'right' },
+    { title: '产品物料编号', dataIndex: 'materialCode', key: 'materialCode', width: 140 },
+    { title: '产品物料名称', dataIndex: 'materialName', key: 'materialName', width: 120 },
+    { title: '规格型号', dataIndex: 'spec', key: 'spec', width: 100 },
+    { title: '在库数量', dataIndex: 'quantity', key: 'quantity', width: 100 },
+    { title: '单位', dataIndex: 'unit', key: 'unit', width: 70 },
+    { title: '入库批次号', dataIndex: 'batchNo', key: 'batchNo', width: 120 },
+    { title: '仓库', dataIndex: 'warehouse', key: 'warehouse', width: 90 },
+    { title: '库区', dataIndex: 'area', key: 'area', width: 90 },
+    { title: '库位', dataIndex: 'location', key: 'location', width: 100 },
+    { title: '生产工单', dataIndex: 'workOrder', key: 'workOrder', width: 120 },
+    { title: '入库日期', dataIndex: 'inboundDate', key: 'inboundDate', width: 110 },
+    { title: '库存有效期', dataIndex: 'expiryDate', key: 'expiryDate', width: 110 },
 ];
 
+const allData = ref<Row[]>([]);
 const tableData = ref<Row[]>([]);
+
+const warehouses = ['一仓库', '二仓库', '三仓库'];
+const areas = ['第一库区', '第二库区', '第三库区', '第四库区', '第五库区', '第六库区', '第七库区'];
+const locations = [
+    'AAAA库位',
+    'BBBB库位',
+    'CCCC库位',
+    'DDDD库位',
+    'EEEE库位',
+    'FFFF库位',
+    'GGGG库位',
+    'HHHH库位',
+    'IIII库位',
+    'JJJJ库位',
+    'KKKK库位',
+    'LLLL库位',
+    'MMMM库位',
+];
+const materialNames = ['笔记本电脑', '台式机', '屏幕', '主板', '键盘'];
 
 const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
     id: i + 1,
-    code: `WLBH${String(i + 1).padStart(10, '0')}`,
-    name: `物料${i + 1}`,
-    quantity: Math.floor(Math.random() * 1000),
+    materialCode: `CPWLBH${String((i % 5) + 1).padStart(7, '0')}`,
+    materialName: materialNames[i % 5],
+    spec: `规格${(i % 5) + 1}`,
+    quantity: 200,
     unit: '个',
-    warehouse: `一仓库`,
-    location: `库位${i + 1}`,
+    batchNo: 'PCH0000001',
+    warehouse: warehouses[i % 3],
+    area: areas[i % 7],
+    location: locations[i % 13],
+    workOrder: 'SCGD0000001',
+    inboundDate: '2025.01.01',
+    expiryDate: '2025.12.30',
 }));
 
+const filterData = () => {
+    let list = [...mock];
+    if (searchForm.code.trim()) {
+        const q = searchForm.code.trim().toLowerCase();
+        list = list.filter(r => r.materialCode.toLowerCase().includes(q));
+    }
+    if (searchForm.name.trim()) {
+        const q = searchForm.name.trim();
+        list = list.filter(r => r.materialName.includes(q));
+    }
+    return list;
+};
+
 const loadData = () => {
+    const filtered = filterData();
+    pagination.total = filtered.length;
     const start = (pagination.current - 1) * pagination.pageSize;
     const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+    allData.value = filtered;
+    tableData.value = filtered.slice(start, end);
 };
 
 const onSelectChange = (keys: number[]) => {
@@ -160,8 +203,6 @@ const handleJumpToPage = () => {
         message.warning('请输入有效的页码');
     }
 };
-
-const noop = () => message.info('演示页面：此功能暂未接入后端');
 
 onMounted(() => loadData());
 </script>

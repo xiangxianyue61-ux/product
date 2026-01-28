@@ -2,10 +2,10 @@
     <div class="bg-[#f0f2f5]">
         <a-card class="mb-4" :bordered="false">
             <a-form :model="searchForm" layout="inline">
-                <a-form-item label="出库编号">
+                <a-form-item label="路由编号">
                     <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
-                <a-form-item label="物料名称">
+                <a-form-item label="路由名称">
                     <a-input v-model:value="searchForm.name" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item>
@@ -46,9 +46,12 @@
                 row-key="id"
             >
                 <template #bodyCell="{ column }">
-                    <template v-if="column.key === 'action'">
+                    <template v-if="column.key === 'status'">
+                        <span style="color: #52c41a">启用</span>
+                    </template>
+                    <template v-else-if="column.key === 'action'">
                         <a-space>
-                            <a @click="noop">出库产品</a>
+                            <a @click="noop">详情</a>
                             <span>|</span>
                             <a @click="noop">编辑</a>
                             <span>|</span>
@@ -92,12 +95,10 @@ import { PlusOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-
 type Row = {
     id: number;
     code: string;
-    orderName: string;
-    workOrder: string;
-    customer: string;
-    salesOrder: string;
-    outboundDate: string;
+    name: string;
+    status: string;
     remark: string;
+    createTime: string;
 };
 
 const searchForm = reactive({ code: '', name: '' });
@@ -114,31 +115,24 @@ const columns = [
         width: 60,
         customRender: ({ index }: { index: number }) => (pagination.current - 1) * pagination.pageSize + index + 1,
     },
-    { title: '出库编号', dataIndex: 'code', key: 'code', width: 160 },
-    { title: '出库单名称', dataIndex: 'orderName', key: 'orderName', width: 140 },
-    { title: '生产工单', dataIndex: 'workOrder', key: 'workOrder', width: 120 },
-    { title: '客户名称', dataIndex: 'customer', key: 'customer', width: 160 },
-    { title: '销售订单', dataIndex: 'salesOrder', key: 'salesOrder', width: 120 },
-    { title: '出库日期', dataIndex: 'outboundDate', key: 'outboundDate', width: 120 },
-    { title: '备注', dataIndex: 'remark', key: 'remark', width: 80 },
-    { title: '操作', key: 'action', width: 200, fixed: 'right' },
+    { title: '路由编号', dataIndex: 'code', key: 'code', width: 140 },
+    { title: '路由名称', dataIndex: 'name', key: 'name', width: 160 },
+    { title: '状态', dataIndex: 'status', key: 'status', width: 90 },
+    { title: '备注', dataIndex: 'remark', key: 'remark', width: 160 },
+    { title: '创建时间', dataIndex: 'createTime', key: 'createTime', width: 120 },
+    { title: '操作', key: 'action', width: 180, fixed: 'right' },
 ];
 
 const allData = ref<Row[]>([]);
 const tableData = ref<Row[]>([]);
 
-const customers = ['霍的微漠有限公司', '智造科技公司', '精益供应链'];
-const orderNames = ['比亚为产品出库', '笔记本电脑出库', '台式机出库'];
-
 const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
     id: i + 1,
-    code: `CPCK${String(i + 1).padStart(10, '0')}`,
-    orderName: orderNames[i % 3],
-    workOrder: 'SCGD0000001',
-    customer: customers[i % 3],
-    salesOrder: 'XSDD0000001',
-    outboundDate: '2025.05.01',
-    remark: '无',
+    code: `LYBH${String(i + 1).padStart(10, '0')}`,
+    name: `路由${i + 1}`,
+    status: 'enabled',
+    remark: i % 3 === 0 ? '默认路由' : '无',
+    createTime: '2025-01-15',
 }));
 
 const filterData = () => {
@@ -149,7 +143,7 @@ const filterData = () => {
     }
     if (searchForm.name.trim()) {
         const q = searchForm.name.trim();
-        list = list.filter(r => r.orderName.includes(q));
+        list = list.filter(r => r.name.includes(q));
     }
     return list;
 };
