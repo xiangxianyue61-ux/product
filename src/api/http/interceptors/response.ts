@@ -1,10 +1,10 @@
+import type { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 import { reportApi } from '../../../monitor/report';
 import { refreshToken } from '../refresh';
 
-// 配置响应拦截器
-export function setupResponseInterceptor(instance: any) {
+export function setupResponseInterceptor(instance: AxiosInstance) {
     instance.interceptors.response.use(
-        (res: any) => {
+        (res: AxiosResponse) => {
             const m = res.config.metadata;
             // 如果有元数据，上报 API 成功状态
             if (m) {
@@ -19,7 +19,7 @@ export function setupResponseInterceptor(instance: any) {
             }
             return res;
         },
-        async (err: any) => {
+        async (err: AxiosError) => {
             const config = err.config;
             const m = config?.metadata;
             // 如果有元数据，上报 API 失败状态

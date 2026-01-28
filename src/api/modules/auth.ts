@@ -25,10 +25,8 @@ export function profile() {
         },
     });
 }
-
-// 更新个人信息接口
-// 修改个人中心信息
-export function updateProfile(params: any) {
+//修改个人中心信息
+export function updateProfile(params: Record<string, unknown>) {
     return http.post('/xx/completesetup', params, {
         meta: {
             action: 'user_update_profile',

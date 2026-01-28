@@ -4,11 +4,10 @@ import { generateUUID } from '../../../utils/uuid';
 // 配置请求拦截器
 export function setupRequestInterceptor(instance: AxiosInstance) {
     instance.interceptors.request.use((config: AxiosRequestConfig) => {
-        // 开发环境日志
-        console.log('DEV?', import.meta.env.DEV);
-        console.log('request interceptor hit', config.url);
-
-        // 从 localStorage 获取 token
+        if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.log('🔥 request interceptor hit', config.url);
+        }
         const token = localStorage.getItem('access_token');
 
         // 如果存在 token，添加到请求头

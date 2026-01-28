@@ -10,7 +10,9 @@ export function reportApi(data: ApiMonitor) {
 
     // 打印日志方便调试
     if (import.meta.env.DEV) {
-        console.log('[API Monitor] Reporting:', data);
+        // eslint-disable-next-line no-console
+        console.log('[API Monitor]', data);
+        return;
     }
 
     // 上报数据

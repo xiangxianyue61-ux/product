@@ -79,11 +79,26 @@ import { profile, updateProfile } from '../../api/modules/auth';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
+interface UserInfo {
+    id: string;
+    username: string;
+    realName?: string;
+    phone?: string;
+    status: string;
+    isFirstLogin?: boolean;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 const router = useRouter();
 const loading = ref(true);
 const submitting = ref(false);
 const isFirstLogin = ref(false);
-const userInfo = ref<any>({});
+const userInfo = ref<UserInfo>({
+    id: '',
+    username: '',
+    status: 'active',
+});
 
 const setupForm = reactive({
     realName: '',
@@ -92,7 +107,7 @@ const setupForm = reactive({
     confirmPassword: '',
 });
 
-const validatePass2 = async (_rule: any, value: string) => {
+const validatePass2 = async (_rule: unknown, value: string) => {
     if (value !== setupForm.password) {
         return Promise.reject('两次输入的密码不一致');
     }
@@ -107,6 +122,7 @@ const fetchUserInfo = async () => {
             isFirstLogin.value = !!res.data.user.isFirstLogin;
         }
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error(error);
         message.error('获取用户信息失败');
     } finally {
@@ -132,6 +148,7 @@ const handleSetup = async () => {
             message.error(res.data.message || '设置失败');
         }
     } catch (error) {
+        // eslint-disable-next-line no-console
         console.error(error);
         message.error('请求失败');
     } finally {

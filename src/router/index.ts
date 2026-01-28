@@ -381,6 +381,12 @@ const routes: RouteRecordRaw[] = [
                 component: () => import('../views/process-management/FormConfig.vue'),
                 meta: { title: '表单配置', module: 'process-management' },
             },
+            {
+                path: 'process-management/route-data',
+                name: 'RouteData',
+                component: () => import('../views/process-management/RouteData.vue'),
+                meta: { title: '路由数据', module: 'process-management' },
+            },
             // 系统设置 - 其他页面
             {
                 path: 'system-settings/position-info',
