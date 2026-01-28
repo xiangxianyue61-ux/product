@@ -3,10 +3,10 @@
         <a-card class="mb-4" :bordered="false">
             <a-form :model="searchForm" layout="inline">
                 <a-form-item label="角色编号">
-                    <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
+                    <a-input v-model="searchForm.code" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item label="角色名称">
-                    <a-input v-model:value="searchForm.name" placeholder="请输入内容" style="width: 220px" />
+                    <a-input v-model="searchForm.name" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item>
                     <a-space>
@@ -19,7 +19,7 @@
 
         <a-card class="mb-4" :bordered="false">
             <a-space>
-                <a-button type="primary" @click="noop">新增</a-button>
+                <a-button type="primary" @click="handleAdd">新增</a-button>
                 <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
@@ -49,8 +49,8 @@
 
             <div class="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                 <a-pagination
-                    v-model:current="pagination.current"
-                    v-model:page-size="pagination.pageSize"
+                    :current="pagination.current"
+                    :page-size="pagination.pageSize"
                     :total="pagination.total"
                     :show-size-changer="true"
                     :show-total="total => `共${total}条`"
@@ -60,18 +60,34 @@
                 />
                 <a-space class="flex items-center gap-2">
                     <span>跳至</span>
-                    <a-input-number v-model:value="jumpPage" :min="1" :max="maxPage" style="width: 80px" />
+                    <a-input-number v-model="jumpPage" :min="1" :max="maxPage" style="width: 80px" />
                     <span>页</span>
                     <a-button type="primary" size="small" @click="handleJumpToPage">确定</a-button>
                 </a-space>
             </div>
         </a-card>
+
+        <!-- 新增角色弹窗 -->
+        <a-modal :open="addModalVisible" title="新增" @ok="handleAddSubmit" @cancel="handleAddCancel">
+            <a-form :model="addForm" :label-col="{ span: 5 }" :wrapper-col="{ span: 16 }">
+                <a-form-item label="角色编号" required>
+                    <a-input v-model="addForm.name" placeholder="请输入角色编号（唯一标识，如 admin）" />
+                </a-form-item>
+                <a-form-item label="角色名称" required>
+                    <a-input v-model="addForm.displayName" placeholder="请输入角色名称（如 管理员）" />
+                </a-form-item>
+                <a-form-item label="描述">
+                    <a-textarea v-model="addForm.description" placeholder="请输入内容" />
+                </a-form-item>
+            </a-form>
+        </a-modal>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { addRoleList, getRoleList } from './api/index';
 
 type Row = {
     id: number;
@@ -115,10 +131,23 @@ const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
     createTime: '2025.04.24 14:00:00',
 }));
 
-const loadData = () => {
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+const getRoleListData = async () => {
+    try {
+        const res = await getRoleList({
+            pageNum: pagination.current,
+            pageSize: pagination.pageSize,
+            code: searchForm.code,
+            name: searchForm.name,
+        });
+        if (res.data.success) {
+            tableData.value = res.data.data || [];
+            pagination.total = res.data.total || 0;
+        } else {
+            message.error(res.data.message || '查询失败');
+        }
+    } catch (error) {
+        // 错误已由拦截器处理
+    }
 };
 
 const onSelectChange = (keys: number[]) => {
@@ -127,7 +156,7 @@ const onSelectChange = (keys: number[]) => {
 
 const handleSearch = () => {
     pagination.current = 1;
-    loadData();
+    getRoleListData();
     message.success('查询成功');
 };
 
@@ -135,24 +164,24 @@ const handleReset = () => {
     searchForm.code = '';
     searchForm.name = '';
     pagination.current = 1;
-    loadData();
+    getRoleListData();
 };
 
 const handlePageChange = (page: number) => {
     pagination.current = page;
-    loadData();
+    getRoleListData();
 };
 
 const handlePageSizeChange = (_current: number, size: number) => {
     pagination.current = 1;
     pagination.pageSize = size;
-    loadData();
+    getRoleListData();
 };
 
 const handleJumpToPage = () => {
     if (jumpPage.value >= 1 && jumpPage.value <= maxPage.value) {
         pagination.current = jumpPage.value;
-        loadData();
+        getRoleListData();
     } else {
         message.warning('请输入有效的页码');
     }
@@ -160,5 +189,44 @@ const handleJumpToPage = () => {
 
 const noop = () => message.info('演示页面：此功能暂未接入后端');
 
-onMounted(() => loadData());
+// 新增逻辑
+const addModalVisible = ref(false);
+const addForm = reactive({
+    name: '', // 角色编号/唯一标识
+    displayName: '', // 角色名称
+    description: '', // 描述
+});
+
+const handleAdd = () => {
+    addForm.name = '';
+    addForm.displayName = '';
+    addForm.description = '';
+    addModalVisible.value = true;
+};
+
+const handleAddCancel = () => {
+    addModalVisible.value = false;
+};
+
+const handleAddSubmit = async () => {
+    if (!addForm.name || !addForm.displayName) {
+        message.warning('请填写必填项');
+        return;
+    }
+    try {
+        const res = await addRoleList(addForm);
+        if (res.data.success) {
+            message.success('添加成功');
+            addModalVisible.value = false;
+            // 刷新列表（这里暂时调用 mock 加载，实际应调用后端列表接口）
+            getRoleListData();
+        } else {
+            message.error(res.data.message || '添加失败');
+        }
+    } catch (error) {
+        // 错误已由拦截器处理，这里可忽略
+    }
+};
+
+onMounted(() => getRoleListData());
 </script>

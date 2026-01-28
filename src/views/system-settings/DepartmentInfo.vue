@@ -44,47 +44,47 @@
                         <a-row :gutter="16">
                             <a-col :span="12">
                                 <a-form-item label="部门名称" required>
-                                    <a-input v-model:value="form.name" />
+                                    <a-input v-model="form.name" />
                                 </a-form-item>
                             </a-col>
                             <a-col :span="12">
                                 <a-form-item label="上级部门" required>
-                                    <a-input v-model:value="form.parentName" />
+                                    <a-input v-model="form.parentName" />
                                 </a-form-item>
                             </a-col>
                             <a-col :span="12">
                                 <a-form-item label="部门编码" required>
-                                    <a-input v-model:value="form.code" />
+                                    <a-input v-model="form.code" />
                                 </a-form-item>
                             </a-col>
                             <a-col :span="12">
                                 <a-form-item label="机构类型" required>
-                                    <a-input v-model:value="form.type" />
+                                    <a-input v-model="form.type" />
                                 </a-form-item>
                             </a-col>
                             <a-col :span="12">
                                 <a-form-item label="负责人">
-                                    <a-input v-model:value="form.owner" />
+                                    <a-input v-model="form.owner" />
                                 </a-form-item>
                             </a-col>
                             <a-col :span="12">
                                 <a-form-item label="排序">
-                                    <a-input-number v-model:value="form.sort" :min="1" class="w-full" />
+                                    <a-input-number v-model="form.sort" :min="1" class="w-full" />
                                 </a-form-item>
                             </a-col>
                             <a-col :span="12">
                                 <a-form-item label="联系方式" required>
-                                    <a-input v-model:value="form.phone" />
+                                    <a-input v-model="form.phone" />
                                 </a-form-item>
                             </a-col>
                             <a-col :span="12">
                                 <a-form-item label="联系地址">
-                                    <a-input v-model:value="form.address" />
+                                    <a-input v-model="form.address" />
                                 </a-form-item>
                             </a-col>
                             <a-col :span="24">
                                 <a-form-item label="备注" required :label-col="{ span: 3 }" :wrapper-col="{ span: 21 }">
-                                    <a-textarea v-model:value="form.remark" :rows="4" />
+                                    <a-textarea v-model="form.remark" :rows="4" />
                                 </a-form-item>
                             </a-col>
                         </a-row>

@@ -3,10 +3,10 @@
         <a-card class="mb-4" :bordered="false">
             <a-form :model="searchForm" layout="inline">
                 <a-form-item label="排班编号">
-                    <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
+                    <a-input v-model="searchForm.code" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item label="排班名称">
-                    <a-input v-model:value="searchForm.name" placeholder="请输入内容" style="width: 220px" />
+                    <a-input v-model="searchForm.name" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item>
                     <a-space>
@@ -49,8 +49,8 @@
 
             <div class="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                 <a-pagination
-                    v-model:current="pagination.current"
-                    v-model:page-size="pagination.pageSize"
+                    :current="pagination.current"
+                    :page-size="pagination.pageSize"
                     :total="pagination.total"
                     :show-size-changer="true"
                     :show-total="total => `共${total}条`"
@@ -60,7 +60,7 @@
                 />
                 <a-space class="flex items-center gap-2">
                     <span>跳至</span>
-                    <a-input-number v-model:value="jumpPage" :min="1" :max="maxPage" style="width: 80px" />
+                    <a-input-number v-model="jumpPage" :min="1" :max="maxPage" style="width: 80px" />
                     <span>页</span>
                     <a-button type="primary" size="small" @click="handleJumpToPage">确定</a-button>
                 </a-space>
