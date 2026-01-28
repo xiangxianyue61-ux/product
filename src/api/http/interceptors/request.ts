@@ -3,8 +3,10 @@ import { generateUUID } from '../../../utils/uuid';
 
 export function setupRequestInterceptor(instance: AxiosInstance) {
     instance.interceptors.request.use((config: AxiosRequestConfig) => {
-        console.log('DEV?', import.meta.env.DEV);
-        console.log('🔥 request interceptor hit', config.url);
+        if (import.meta.env.DEV) {
+            // eslint-disable-next-line no-console
+            console.log('🔥 request interceptor hit', config.url);
+        }
         const token = localStorage.getItem('access_token');
 
         if (token) {

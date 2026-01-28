@@ -47,7 +47,7 @@ export default [
 
     // 3. TypeScript 文件
     {
-        files: ['src/**/*.{ts,tsx}'],
+        files: ['src/**/*.{ts,tsx}', '*.ts'],
         languageOptions: {
             parser: tsParser,
             parserOptions: {
