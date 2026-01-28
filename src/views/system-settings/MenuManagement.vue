@@ -3,10 +3,10 @@
         <a-card class="mb-4" :bordered="false">
             <a-form :model="searchForm" layout="inline">
                 <a-form-item label="菜单编号">
-                    <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
+                    <a-input v-model="searchForm.code" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item label="菜单名称">
-                    <a-input v-model:value="searchForm.name" placeholder="请输入内容" style="width: 220px" />
+                    <a-input v-model="searchForm.name" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item>
                     <a-space>
@@ -19,7 +19,7 @@
 
         <a-card class="mb-4" :bordered="false">
             <a-space>
-                <a-button type="primary" @click="noop">新增</a-button>
+                <a-button type="primary" @click="handleAdd">新增</a-button>
                 <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
@@ -49,8 +49,8 @@
 
             <div class="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between">
                 <a-pagination
-                    v-model:current="pagination.current"
-                    v-model:page-size="pagination.pageSize"
+                    :current="pagination.current"
+                    :page-size="pagination.pageSize"
                     :total="pagination.total"
                     :show-size-changer="true"
                     :show-total="total => `共${total}条`"
@@ -60,18 +60,92 @@
                 />
                 <a-space class="flex items-center gap-2">
                     <span>跳至</span>
-                    <a-input-number v-model:value="jumpPage" :min="1" :max="maxPage" style="width: 80px" />
+                    <a-input-number v-model="jumpPage" :min="1" :max="maxPage" style="width: 80px" />
                     <span>页</span>
                     <a-button type="primary" size="small" @click="handleJumpToPage">确定</a-button>
                 </a-space>
             </div>
         </a-card>
+
+        <!-- 新增菜单弹窗 -->
+        <a-modal :open="addModalVisible" title="新增" width="800px" @ok="handleAddSubmit" @cancel="handleAddCancel">
+            <a-form :model="addForm" :label-col="{ span: 4 }" :wrapper-col="{ span: 20 }">
+                <a-row :gutter="24">
+                    <a-col :span="24">
+                        <a-form-item label="菜单类型">
+                            <a-radio-group v-model="addForm.menuType">
+                                <a-radio value="1">一级菜单</a-radio>
+                                <a-radio value="2">二级菜单</a-radio>
+                                <a-radio value="3">三级菜单</a-radio>
+                            </a-radio-group>
+                        </a-form-item>
+                    </a-col>
+                </a-row>
+                <a-row :gutter="24">
+                    <a-col :span="12">
+                        <a-form-item label="菜单名称" required>
+                            <a-input v-model="addForm.title" placeholder="请输入内容" />
+                        </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                        <a-form-item label="路由名称" required>
+                            <a-input v-model="addForm.name" placeholder="请输入路由Name(如 SystemSettings)" />
+                        </a-form-item>
+                    </a-col>
+                </a-row>
+                <a-row :gutter="24">
+                    <a-col :span="12">
+                        <a-form-item label="菜单路径">
+                            <a-input v-model="addForm.path" placeholder="请输入路径" />
+                        </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                        <a-form-item label="前端组件">
+                            <a-input v-model="addForm.component" placeholder="请输入组件路径" />
+                        </a-form-item>
+                    </a-col>
+                </a-row>
+                <a-row :gutter="24">
+                    <a-col :span="12">
+                        <a-form-item label="菜单图标">
+                            <a-input v-model="addForm.icon" placeholder="请输入图标名称" />
+                        </a-form-item>
+                    </a-col>
+                    <a-col :span="12">
+                        <a-form-item label="排序">
+                            <a-input-number v-model="addForm.sort" placeholder="请输入数字" style="width: 100%" />
+                        </a-form-item>
+                    </a-col>
+                </a-row>
+                <a-row :gutter="24">
+                    <a-col :span="24">
+                        <a-form-item label="其他选项">
+                            <a-space size="large">
+                                <span class="flex items-center">
+                                    <span class="mr-2">是否路由菜单</span>
+                                    <a-switch v-model="addForm.isRoute" />
+                                </span>
+                                <span class="flex items-center">
+                                    <span class="mr-2">隐藏路由</span>
+                                    <a-switch v-model="addForm.hidden" />
+                                </span>
+                                <span class="flex items-center">
+                                    <span class="mr-2">是否缓存路由</span>
+                                    <a-switch v-model="addForm.keepAlive" />
+                                </span>
+                            </a-space>
+                        </a-form-item>
+                    </a-col>
+                </a-row>
+            </a-form>
+        </a-modal>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { addMenuList, getMenuList } from './api/index';
 
 type Row = {
     id: number;
@@ -121,10 +195,17 @@ const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
     createTime: '2025.04.24 14:00:00',
 }));
 
-const loadData = () => {
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+const getMenuListData = async () => {
+    const res = await getMenuList({
+        pageNum: pagination.current,
+        pageSize: pagination.pageSize,
+        code: searchForm.code,
+        name: searchForm.name,
+    });
+    if (res.data.success) {
+        tableData.value = res.data.data.records;
+        pagination.total = res.data.data.total;
+    }
 };
 
 const onSelectChange = (keys: number[]) => {
@@ -133,7 +214,7 @@ const onSelectChange = (keys: number[]) => {
 
 const handleSearch = () => {
     pagination.current = 1;
-    loadData();
+    getMenuListData();
     message.success('查询成功');
 };
 
@@ -141,24 +222,24 @@ const handleReset = () => {
     searchForm.code = '';
     searchForm.name = '';
     pagination.current = 1;
-    loadData();
+    getMenuListData();
 };
 
 const handlePageChange = (page: number) => {
     pagination.current = page;
-    loadData();
+    getMenuListData();
 };
 
 const handlePageSizeChange = (_current: number, size: number) => {
     pagination.current = 1;
     pagination.pageSize = size;
-    loadData();
+    getMenuListData();
 };
 
 const handleJumpToPage = () => {
     if (jumpPage.value >= 1 && jumpPage.value <= maxPage.value) {
         pagination.current = jumpPage.value;
-        loadData();
+        getMenuListData();
     } else {
         message.warning('请输入有效的页码');
     }
@@ -166,5 +247,59 @@ const handleJumpToPage = () => {
 
 const noop = () => message.info('演示页面：此功能暂未接入后端');
 
-onMounted(() => loadData());
+// 新增逻辑
+const addModalVisible = ref(false);
+const addForm = reactive({
+    menuType: '1',
+    title: '', // 菜单名称
+    name: '', // 路由名称
+    path: '', // 菜单路径
+    component: '', // 前端组件
+    icon: '', // 菜单图标
+    sort: 0, // 排序
+    isRoute: true,
+    hidden: false,
+    keepAlive: true,
+});
+
+const handleAdd = () => {
+    Object.assign(addForm, {
+        menuType: '1',
+        title: '',
+        name: '',
+        path: '',
+        component: '',
+        icon: '',
+        sort: 0,
+        isRoute: true,
+        hidden: false,
+        keepAlive: true,
+    });
+    addModalVisible.value = true;
+};
+
+const handleAddCancel = () => {
+    addModalVisible.value = false;
+};
+
+const handleAddSubmit = async () => {
+    if (!addForm.title || !addForm.name) {
+        message.warning('请填写必填项');
+        return;
+    }
+    try {
+        const res = await addMenuList(addForm);
+        if (res.data.success) {
+            message.success('添加成功');
+            addModalVisible.value = false;
+            getMenuListData();
+        } else {
+            message.error(res.data.message || '添加失败');
+        }
+    } catch (error) {
+        // 错误已由拦截器处理
+    }
+};
+
+onMounted(() => getMenuListData());
 </script>
