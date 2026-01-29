@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import Layout from '../layouts/MainLayout.vue';
 import { setupAuthGuard } from '../../Auth';
+import store from '../store'; // 直接导入 store 实例，而不是 useStore hook
 
 const routes: RouteRecordRaw[] = [
     {
@@ -190,10 +191,90 @@ const routes: RouteRecordRaw[] = [
                 meta: { title: '流程模型', module: 'process-management' },
             },
             {
-                path: 'system-settings/department-info',
-                name: 'DepartmentInfo',
-                component: () => import('../views/system-settings/DepartmentInfo.vue'),
-                meta: { title: '部门信息', module: 'system-settings' },
+                path: 'system-settings',
+                name: 'SystemSettings',
+                component: () => import('../layouts/RouteView.vue'),
+                meta: { title: '系统设置', module: 'system-settings' },
+                children: [
+                    {
+                        path: 'department-info',
+                        name: 'DepartmentInfo',
+                        component: () => import('../views/system-settings/DepartmentInfo.vue'),
+                        meta: { title: '部门信息', module: 'system-settings' },
+                    },
+                    {
+                        path: 'position-info',
+                        name: 'PositionInfo',
+                        component: () => import('../views/system-settings/PositionInfo.vue'),
+                        meta: { title: '职位信息', module: 'system-settings' },
+                    },
+                    {
+                        path: 'employee-info',
+                        name: 'EmployeeInfo',
+                        component: () => import('../views/system-settings/EmployeeInfo.vue'),
+                        meta: { title: '员工信息', module: 'system-settings' },
+                    },
+                    {
+                        path: 'supplier-management',
+                        name: 'SupplierManagement',
+                        component: () => import('../views/system-settings/SupplierManagement.vue'),
+                        meta: { title: '供应商管理', module: 'system-settings' },
+                    },
+                    {
+                        path: 'customer-management',
+                        name: 'CustomerManagement',
+                        component: () => import('../views/system-settings/CustomerManagement.vue'),
+                        meta: { title: '客户管理', module: 'system-settings' },
+                    },
+                    {
+                        path: 'role-management',
+                        name: 'RoleManagement',
+                        component: () => import('../views/system-settings/RoleManagement.vue'),
+                        meta: { title: '角色管理', module: 'system-settings', role: ['admin'] },
+                    },
+                    {
+                        path: 'user-management',
+                        name: 'UserManagement',
+                        component: () => import('../views/system-settings/UserManagement.vue'),
+                        meta: { title: '用户管理', module: 'system-settings', role: ['user', 'admin'] },
+                    },
+                    {
+                        path: 'menu-management',
+                        name: 'MenuManagement',
+                        component: () => import('../views/system-settings/MenuManagement.vue'),
+                        meta: { title: '菜单管理', module: 'system-settings', role: ['admin'] },
+                    },
+                    {
+                        path: 'production-team',
+                        name: 'ProductionTeam',
+                        component: () => import('../views/system-settings/ProductionTeam.vue'),
+                        meta: { title: '生产班组', module: 'system-settings' },
+                    },
+                    {
+                        path: 'work-calendar',
+                        name: 'WorkCalendar',
+                        component: () => import('../views/system-settings/WorkCalendar.vue'),
+                        meta: { title: '工作日历', module: 'system-settings' },
+                    },
+                    {
+                        path: 'scheduling-plan',
+                        name: 'SchedulingPlan',
+                        component: () => import('../views/system-settings/SchedulingPlan.vue'),
+                        meta: { title: '排班计划', module: 'system-settings' },
+                    },
+                    {
+                        path: 'dictionary-management',
+                        name: 'DictionaryManagement',
+                        component: () => import('../views/system-settings/DictionaryManagement.vue'),
+                        meta: { title: '字典管理', module: 'system-settings' },
+                    },
+                    {
+                        path: 'coding-rules',
+                        name: 'CodingRules',
+                        component: () => import('../views/system-settings/CodingRules.vue'),
+                        meta: { title: '编码规则', module: 'system-settings' },
+                    },
+                ],
             },
             // 质量管理 - 其他页面
             {
@@ -393,84 +474,12 @@ const routes: RouteRecordRaw[] = [
                 component: () => import('../views/process-management/RouteData.vue'),
                 meta: { title: '路由数据', module: 'process-management' },
             },
-            // 系统设置 - 其他页面
-            {
-                path: 'system-settings/position-info',
-                name: 'PositionInfo',
-                component: () => import('../views/system-settings/PositionInfo.vue'),
-                meta: { title: '职位信息', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/employee-info',
-                name: 'EmployeeInfo',
-                component: () => import('../views/system-settings/EmployeeInfo.vue'),
-                meta: { title: '员工信息', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/supplier-management',
-                name: 'SupplierManagement',
-                component: () => import('../views/system-settings/SupplierManagement.vue'),
-                meta: { title: '供应商管理', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/customer-management',
-                name: 'CustomerManagement',
-                component: () => import('../views/system-settings/CustomerManagement.vue'),
-                meta: { title: '客户管理', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/role-management',
-                name: 'RoleManagement',
-                component: () => import('../views/system-settings/RoleManagement.vue'),
-                meta: { title: '角色管理', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/user-management',
-                name: 'UserManagement',
-                component: () => import('../views/system-settings/UserManagement.vue'),
-                meta: { title: '用户管理', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/menu-management',
-                name: 'MenuManagement',
-                component: () => import('../views/system-settings/MenuManagement.vue'),
-                meta: { title: '菜单管理', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/production-team',
-                name: 'ProductionTeam',
-                component: () => import('../views/system-settings/ProductionTeam.vue'),
-                meta: { title: '生产班组', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/work-calendar',
-                name: 'WorkCalendar',
-                component: () => import('../views/system-settings/WorkCalendar.vue'),
-                meta: { title: '工作日历', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/scheduling-plan',
-                name: 'SchedulingPlan',
-                component: () => import('../views/system-settings/SchedulingPlan.vue'),
-                meta: { title: '排班计划', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/dictionary-management',
-                name: 'DictionaryManagement',
-                component: () => import('../views/system-settings/DictionaryManagement.vue'),
-                meta: { title: '字典管理', module: 'system-settings' },
-            },
-            {
-                path: 'system-settings/coding-rules',
-                name: 'CodingRules',
-                component: () => import('../views/system-settings/CodingRules.vue'),
-                meta: { title: '编码规则', module: 'system-settings' },
-            },
+
             {
                 path: 'profile',
                 name: 'Profile',
                 component: () => import('../views/system-settings/Profile.vue'),
-                meta: { title: '个人中心', module: 'system-settings' },
+                meta: { title: '个人中心', module: 'system-settings', role: ['user', 'admin'] },
             },
         ],
     },
@@ -491,6 +500,25 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
     history: createWebHistory('/product/'),
     routes,
+});
+
+router.beforeEach((to, from, next) => {
+    //1.当前访问的路由
+    console.log(to.meta.role, '1');
+    if (to.meta.role) {
+        //2.获取当前vuex中自己的角色
+        //3.to.meta.role就是允许的角色列表["user","admin"]
+        console.log(store.state.role, '2');
+        let userRole = store.state.role;
+        let allowRoleList = to.meta.role;
+        if (allowRoleList.indexOf(userRole) === -1) {
+            next({ name: 'Login' });
+        } else {
+            next();
+        }
+    } else {
+        next();
+    }
 });
 
 setupAuthGuard(router);

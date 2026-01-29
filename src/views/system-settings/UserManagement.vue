@@ -80,10 +80,17 @@
                     <a-input v-model="addForm.username" placeholder="请输入登录账号" />
                 </a-form-item>
                 <a-form-item label="密码" required>
-                    <a-input-password v-model="addForm.password" placeholder="请输入密码" />
+                    <a-input-password v-model:value="addForm.password" placeholder="请输入密码" />
                 </a-form-item>
                 <a-form-item label="确认密码" required>
-                    <a-input-password v-model="addForm.confirmPassword" placeholder="请再次输入密码" />
+                    <a-input-password v-model:value="addForm.confirmPassword" placeholder="请再次输入密码" />
+                </a-form-item>
+                <a-form-item label="角色">
+                    <a-select v-model:value="addForm.roleId" placeholder="请选择角色" allow-clear>
+                        <a-select-option v-for="role in roleOptions" :key="role._id" :value="role._id">
+                            {{ role.displayName }}
+                        </a-select-option>
+                    </a-select>
                 </a-form-item>
             </a-form>
         </a-modal>
@@ -93,7 +100,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { getEmployeeList, addEmployeeList } from './api/index';
+import { getEmployeeList, addEmployeeList, getRoleList } from './api/index';
 
 type Row = {
     _id: string;
@@ -111,6 +118,15 @@ type Row = {
 
 const searchForm = reactive({ username: '', realName: '' });
 const selectedRowKeys = ref<string[]>([]);
+
+const roleOptions = ref<{ _id: string; displayName: string }[]>([]);
+
+const getRoleOptions = async () => {
+    const res = await getRoleList();
+    if (res.data.success) {
+        roleOptions.value = res.data.data;
+    }
+};
 
 const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
 const jumpPage = ref(1);
@@ -191,16 +207,25 @@ const addModalVisible = ref(false);
 const addForm = reactive({
     realName: '',
     username: '',
+    phone: '',
     password: '',
     confirmPassword: '',
+    roleId: undefined as string | undefined,
+    status: true, // 默认 active，true 为启用
 });
 
 const handleAdd = () => {
     addForm.realName = '';
     addForm.username = '';
+    addForm.phone = '';
     addForm.password = '';
     addForm.confirmPassword = '';
+    addForm.roleId = undefined;
+    addForm.status = true;
     addModalVisible.value = true;
+    if (roleOptions.value.length === 0) {
+        getRoleOptions();
+    }
 };
 
 const handleAddCancel = () => {
@@ -208,8 +233,19 @@ const handleAddCancel = () => {
 };
 
 const handleAddSubmit = async () => {
-    if (!addForm.realName || !addForm.username || !addForm.password || !addForm.confirmPassword) {
-        message.warning('请填写必填项');
+    if (
+        !addForm.realName ||
+        !addForm.username ||
+        !addForm.phone ||
+        !addForm.password ||
+        !addForm.confirmPassword ||
+        !addForm.roleId
+    ) {
+        message.warning('请填写所有必填项');
+        return;
+    }
+    if (!/^1[3-9]\d{9}$/.test(addForm.phone)) {
+        message.warning('请输入有效的手机号');
         return;
     }
     if (addForm.password !== addForm.confirmPassword) {
@@ -220,7 +256,10 @@ const handleAddSubmit = async () => {
         const res = await addEmployeeList({
             realName: addForm.realName,
             username: addForm.username,
+            phone: addForm.phone,
             password: addForm.password,
+            role: addForm.roleId, // 传递角色ID
+            status: addForm.status ? 'active' : 'inactive',
         });
         if (res.data.success) {
             message.success('添加成功');
@@ -234,5 +273,8 @@ const handleAddSubmit = async () => {
     }
 };
 
-onMounted(() => getEmployeeListData());
+onMounted(() => {
+    getEmployeeListData();
+    getRoleOptions();
+});
 </script>

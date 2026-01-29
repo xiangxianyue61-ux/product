@@ -56,6 +56,9 @@
                 <a-descriptions-item label="账号">{{ userInfo.username }}</a-descriptions-item>
                 <a-descriptions-item label="真实姓名">{{ userInfo.realName || '未设置' }}</a-descriptions-item>
                 <a-descriptions-item label="手机号码">{{ userInfo.phone || '未设置' }}</a-descriptions-item>
+                <a-descriptions-item label="角色">
+                    {{ userInfo.role?.displayName || userInfo.role?.name || userInfo.role || '未设置' }}
+                </a-descriptions-item>
                 <a-descriptions-item label="注册时间">{{ formatDate(userInfo.createdAt) }}</a-descriptions-item>
                 <a-descriptions-item label="最后更新">{{ formatDate(userInfo.updatedAt) }}</a-descriptions-item>
                 <a-descriptions-item label="状态">
@@ -84,6 +87,7 @@ interface UserInfo {
     username: string;
     realName?: string;
     phone?: string;
+    role?: any;
     status: string;
     isFirstLogin?: boolean;
     createdAt?: string;
@@ -117,6 +121,7 @@ const validatePass2 = async (_rule: unknown, value: string) => {
 const fetchUserInfo = async () => {
     try {
         const res = await profile();
+        console.log(res.data, '123');
         if (res.data.success) {
             userInfo.value = res.data.user;
             isFirstLogin.value = !!res.data.user.isFirstLogin;
@@ -155,8 +160,8 @@ const handleSetup = async () => {
         submitting.value = false;
     }
 };
-
-const formatDate = (date: string) => {
+//类型断言确保date存在
+const formatDate = (date: string | undefined) => {
     return date ? dayjs(date).format('YYYY-MM-DD HH:mm:ss') : '-';
 };
 
