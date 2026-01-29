@@ -31,12 +31,12 @@
 
         <a-card class="mb-4" :bordered="false">
             <a-space>
-                <a-button type="primary" @click="noop">
+                <a-button type="primary" @click="openCreate">
                     <template #icon><PlusOutlined /></template>
                     新增
                 </a-button>
-                <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
-                <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
+                <a-button @click="openEditBySelection" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
+                <a-button danger @click="deleteBySelection" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
                 <a-button @click="noop">导入</a-button>
                 <a-button @click="noop">导出</a-button>
@@ -57,11 +57,13 @@
                     </template>
                     <template v-if="column.key === 'action'">
                         <a-space>
-                            <a @click="noop">详情</a>
+                            <a @click="openDetail(record)">详情</a>
                             <span>|</span>
-                            <a @click="noop">处理</a>
+                            <a @click="openEdit(record)">编辑</a>
                             <span>|</span>
-                            <a style="color: #ff4d4f" @click="noop">删除</a>
+                            <a-popconfirm title="确定要删除这条记录吗？" @confirm="deleteOne(record)">
+                                <a style="color: #ff4d4f">删除</a>
+                            </a-popconfirm>
                         </a-space>
                     </template>
                 </template>
@@ -86,6 +88,72 @@
                 </a-space>
             </div>
         </a-card>
+
+        <!-- 详情弹窗 -->
+        <a-modal :open="detailOpen" title="异常详情" @cancel="detailOpen = false" :footer="null">
+            <a-descriptions bordered size="small" :column="2">
+                <a-descriptions-item label="异常编号">{{ currentRow?.code }}</a-descriptions-item>
+                <a-descriptions-item label="生产工单">{{ currentRow?.workOrder }}</a-descriptions-item>
+                <a-descriptions-item label="异常工序">{{ currentRow?.process }}</a-descriptions-item>
+                <a-descriptions-item label="异常等级">{{ currentRow?.level }}</a-descriptions-item>
+                <a-descriptions-item label="异常分类">{{ currentRow?.category }}</a-descriptions-item>
+                <a-descriptions-item label="处理结果">{{ currentRow?.result }}</a-descriptions-item>
+                <a-descriptions-item label="责任部门">{{ currentRow?.dutyDept }}</a-descriptions-item>
+                <a-descriptions-item label="责任人">{{ currentRow?.dutyPerson }}</a-descriptions-item>
+                <a-descriptions-item label="异常描述" :span="2">{{ currentRow?.description }}</a-descriptions-item>
+                <a-descriptions-item label="创建人">{{ currentRow?.creator }}</a-descriptions-item>
+                <a-descriptions-item label="创建时间">{{ currentRow?.createTime }}</a-descriptions-item>
+            </a-descriptions>
+        </a-modal>
+
+        <!-- 新增/编辑弹窗 -->
+        <a-modal
+            :open="editOpen"
+            :title="editMode === 'create' ? '新增异常' : '编辑异常'"
+            @ok="handleSubmit"
+            @cancel="editOpen = false"
+        >
+            <a-form :model="editForm" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
+                <a-form-item label="异常编号" required>
+                    <a-input v-model:value="editForm.code" />
+                </a-form-item>
+                <a-form-item label="生产工单" required>
+                    <a-input v-model:value="editForm.workOrder" />
+                </a-form-item>
+                <a-form-item label="异常工序" required>
+                    <a-input v-model:value="editForm.process" />
+                </a-form-item>
+                <a-form-item label="异常等级" required>
+                    <a-input v-model:value="editForm.level" />
+                </a-form-item>
+                <a-form-item label="异常分类" required>
+                    <a-input v-model:value="editForm.category" />
+                </a-form-item>
+                <a-form-item label="处理结果" required>
+                    <a-select v-model:value="editForm.result" placeholder="请选择">
+                        <a-select-option value="未处理">未处理</a-select-option>
+                        <a-select-option value="已恢复正常">已恢复正常</a-select-option>
+                        <a-select-option value="暂时挂起">暂时挂起</a-select-option>
+                        <a-select-option value="未找到原因">未找到原因</a-select-option>
+                    </a-select>
+                </a-form-item>
+                <a-form-item label="责任部门">
+                    <a-input v-model:value="editForm.dutyDept" />
+                </a-form-item>
+                <a-form-item label="责任人">
+                    <a-input v-model:value="editForm.dutyPerson" />
+                </a-form-item>
+                <a-form-item label="异常描述">
+                    <a-textarea v-model:value="editForm.description" />
+                </a-form-item>
+                <a-form-item label="创建人">
+                    <a-input v-model:value="editForm.creator" />
+                </a-form-item>
+                <a-form-item label="创建时间">
+                    <a-input v-model:value="editForm.createTime" placeholder="YYYY.MM.DD HH:mm:ss" />
+                </a-form-item>
+            </a-form>
+        </a-modal>
     </div>
 </template>
 
@@ -93,6 +161,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue';
+import { apiFetch, type ListResult } from '../../utils/apiClient';
 
 type Row = {
     id: number;
@@ -111,8 +180,9 @@ type Row = {
 
 const searchForm = reactive({ code: '', workOrder: '', category: '', level: '' });
 const selectedRowKeys = ref<number[]>([]);
+const loading = ref(false);
 
-const pagination = reactive({ current: 1, pageSize: 15, total: 56 });
+const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
 const jumpPage = ref(1);
 const maxPage = computed(() => Math.max(1, Math.ceil(pagination.total / pagination.pageSize)));
 
@@ -138,26 +208,27 @@ const columns = [
 ];
 
 const tableData = ref<Row[]>([]);
+const loadData = async () => {
+    loading.value = true;
+    try {
+        const params = new URLSearchParams();
+        params.set('page', String(pagination.current));
+        params.set('pageSize', String(pagination.pageSize));
+        if (searchForm.code.trim()) params.set('code', searchForm.code.trim());
+        if (searchForm.workOrder.trim()) params.set('workOrder', searchForm.workOrder.trim());
+        if (searchForm.category.trim()) params.set('category', searchForm.category.trim());
+        if (searchForm.level.trim()) params.set('level', searchForm.level.trim());
 
-const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
-    id: i + 1,
-    code: `WLBM${String(i + 1).padStart(6, '0')}`,
-    workOrder: 'SCGD0000001',
-    process: '第五道工序',
-    level: '一般异常',
-    category: '设备异常',
-    result: ['未处理', '已恢复正常', '暂时挂起', '未找到原因'][i % 4],
-    dutyDept: '设备管理部',
-    dutyPerson: '王蒙',
-    description: '设备有异响,偶尔卡顿',
-    creator: '刘超',
-    createTime: '2025.04.24 14:00:00',
-}));
-
-const loadData = () => {
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+        const res = await apiFetch<ListResult<Row>>(`/api/abnormalList/list?${params.toString()}`);
+        tableData.value = res.data ?? [];
+        pagination.total = res.total ?? 0;
+    } catch (e) {
+        tableData.value = [];
+        pagination.total = 0;
+        message.error(`获取异常数据失败：${(e as Error).message || '未知错误'}`);
+    } finally {
+        loading.value = false;
+    }
 };
 
 const onSelectChange = (keys: number[]) => {
@@ -166,6 +237,7 @@ const onSelectChange = (keys: number[]) => {
 
 const handleSearch = () => {
     pagination.current = 1;
+    selectedRowKeys.value = [];
     loadData();
     message.success('查询成功');
 };
@@ -176,17 +248,20 @@ const handleReset = () => {
     searchForm.category = '';
     searchForm.level = '';
     pagination.current = 1;
+    selectedRowKeys.value = [];
     loadData();
 };
 
 const handlePageChange = (page: number) => {
     pagination.current = page;
+    selectedRowKeys.value = [];
     loadData();
 };
 
 const handlePageSizeChange = (_current: number, size: number) => {
     pagination.current = 1;
     pagination.pageSize = size;
+    selectedRowKeys.value = [];
     loadData();
 };
 
@@ -205,6 +280,102 @@ const getResultColor = (result: string) => {
     if (result === '暂时挂起') return 'orange';
     if (result === '未找到原因') return 'red';
     return 'default';
+};
+
+// CRUD
+const detailOpen = ref(false);
+const editOpen = ref(false);
+const editMode = ref<'create' | 'edit'>('create');
+const currentRow = ref<Row | null>(null);
+const editForm = reactive<Row>({
+    id: 0,
+    code: '',
+    workOrder: '',
+    process: '',
+    category: '',
+    level: '',
+    result: '未处理',
+    dutyDept: '',
+    dutyPerson: '',
+    description: '',
+    creator: '',
+    createTime: '',
+});
+
+const openDetail = (record: Row) => {
+    currentRow.value = record;
+    detailOpen.value = true;
+};
+
+const openCreate = () => {
+    editMode.value = 'create';
+    Object.assign(editForm, {
+        id: 0,
+        code: '',
+        workOrder: '',
+        process: '',
+        category: '',
+        level: '',
+        result: '未处理',
+        dutyDept: '',
+        dutyPerson: '',
+        description: '',
+        creator: '',
+        createTime: '',
+    });
+    editOpen.value = true;
+};
+
+const openEdit = (record: Row) => {
+    editMode.value = 'edit';
+    Object.assign(editForm, record);
+    editOpen.value = true;
+};
+
+const openEditBySelection = () => {
+    if (selectedRowKeys.value.length !== 1) return;
+    const id = selectedRowKeys.value[0];
+    const row = tableData.value.find(r => r.id === id);
+    if (row) openEdit(row);
+};
+
+const handleSubmit = async () => {
+    try {
+        const payload = { ...editForm };
+        if (editMode.value === 'create') {
+            await apiFetch(`/api/abnormalList`, { method: 'POST', body: JSON.stringify(payload) });
+            message.success('新增成功');
+        } else {
+            await apiFetch(`/api/abnormalList/${editForm.id}`, { method: 'PUT', body: JSON.stringify(payload) });
+            message.success('编辑成功');
+        }
+        editOpen.value = false;
+        await loadData();
+    } catch (e) {
+        message.error(`保存失败：${(e as Error).message || '未知错误'}`);
+    }
+};
+
+const deleteOne = async (record: Row) => {
+    try {
+        await apiFetch(`/api/abnormalList/${record.id}`, { method: 'DELETE' });
+        message.success('删除成功');
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
+    }
+};
+
+const deleteBySelection = async () => {
+    if (selectedRowKeys.value.length === 0) return;
+    try {
+        await Promise.all(selectedRowKeys.value.map(id => apiFetch(`/api/abnormalList/${id}`, { method: 'DELETE' })));
+        message.success(`已删除 ${selectedRowKeys.value.length} 条记录`);
+        selectedRowKeys.value = [];
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
+    }
 };
 
 const noop = () => message.info('演示页面：此功能暂未接入后端');

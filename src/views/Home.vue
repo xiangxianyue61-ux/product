@@ -193,17 +193,29 @@ import {
     WarningOutlined,
 } from '@ant-design/icons-vue';
 import * as echarts from 'echarts';
+import { apiFetch } from '../utils/apiClient';
 
-const calendarValue = ref<Dayjs>(dayjs('2025-01-07'));
+// 类型定义
+type DonutItem = { name: string; value: number };
+type DonutChart = {
+    key: string;
+    title: string;
+    total: number;
+    totalLabel: string;
+    colors: string[];
+    data: DonutItem[];
+};
 
-// KPI数据
+const calendarValue = ref<Dayjs>(dayjs());
+
+// KPI数据（从后端获取）
 const kpiList = ref([
     {
         key: 'in-production',
         label: '在生产数量',
-        value: '436',
+        value: '0',
         unit: '个',
-        trend: 23,
+        trend: 0,
         trendType: 'up',
         icon: SettingOutlined,
         iconBg: '#52c41a',
@@ -211,9 +223,9 @@ const kpiList = ref([
     {
         key: 'unproduced',
         label: '未生产数量',
-        value: '13',
+        value: '0',
         unit: '个',
-        trend: 4,
+        trend: 0,
         trendType: 'down',
         icon: ShopOutlined,
         iconBg: '#faad14',
@@ -221,9 +233,9 @@ const kpiList = ref([
     {
         key: 'non-conforming',
         label: '不合格数量',
-        value: '04',
+        value: '0',
         unit: '个',
-        trend: 2,
+        trend: 0,
         trendType: 'up',
         icon: FileTextOutlined,
         iconBg: '#722ed1',
@@ -231,9 +243,9 @@ const kpiList = ref([
     {
         key: 'achievement-rate',
         label: '生产达成率',
-        value: '92%',
+        value: '0%',
         unit: '',
-        trend: 17,
+        trend: 0,
         trendType: 'up',
         icon: BarChartOutlined,
         iconBg: '#1890ff',
@@ -241,55 +253,40 @@ const kpiList = ref([
     {
         key: 'qualification-rate',
         label: '合格率',
-        value: '97%',
+        value: '0%',
         unit: '',
-        trend: 23,
+        trend: 0,
         trendType: 'up',
         icon: CheckCircleOutlined,
         iconBg: '#52c41a',
     },
 ]);
 
-// 饼图数据
-const donutCharts = ref([
+// 饼图数据（从后端获取）
+const donutCharts = ref<DonutChart[]>([
     {
         key: 'work-order',
         title: '工单统计',
-        total: 198,
+        total: 0,
         totalLabel: '全部工单',
         colors: ['#1890ff', '#faad14', '#13c2c2', '#ff4d4f'],
-        data: [
-            { name: '已完成', value: 129 },
-            { name: '未排产', value: 25 },
-            { name: '未生产', value: 22 },
-            { name: '未完成', value: 12 },
-        ],
+        data: [] as DonutItem[],
     },
     {
         key: 'product',
         title: '产品统计',
-        total: 6543,
+        total: 0,
         totalLabel: '产品总数',
         colors: ['#722ed1', '#52c41a', '#531dab', '#13c2c2'],
-        data: [
-            { name: 'AA产品', value: 2229 },
-            { name: 'BB产品', value: 2588 },
-            { name: 'CC产品', value: 798 },
-            { name: 'DD产品', value: 1081 },
-        ],
+        data: [] as DonutItem[],
     },
     {
         key: 'defect',
         title: '缺陷统计',
-        total: 57,
+        total: 0,
         totalLabel: '缺陷总数',
         colors: ['#fa8c16', '#1890ff', '#52c41a', '#722ed1'],
-        data: [
-            { name: '外观缺陷', value: 18 },
-            { name: '破损裂痕', value: 19 },
-            { name: '生产瑕疵', value: 11 },
-            { name: '其他缺陷', value: 9 },
-        ],
+        data: [] as DonutItem[],
     },
 ]);
 
@@ -338,48 +335,7 @@ const progressColumns = [
     { title: '需求日期', dataIndex: 'date', key: 'date', width: 120 },
 ];
 
-const progressData = ref([
-    {
-        key: '1',
-        code: 'GD74321-003',
-        name: '市场工单1',
-        progress: 59,
-        product: 'AA产品',
-        quantity: 80,
-        priority: '一级',
-        date: '2025-08-30',
-    },
-    {
-        key: '2',
-        code: 'GD74321-393',
-        name: '市场工单2',
-        progress: 88,
-        product: 'BB产品',
-        quantity: 59,
-        priority: '三级',
-        date: '2025-08-30',
-    },
-    {
-        key: '3',
-        code: 'GD74321-341',
-        name: '市场工单3',
-        progress: 58,
-        product: 'CC产品',
-        quantity: 80,
-        priority: '二级',
-        date: '2025-08-30',
-    },
-    {
-        key: '4',
-        code: 'GD74321-987',
-        name: '市场工单4',
-        progress: 100,
-        product: 'DD产品',
-        quantity: 50,
-        priority: '三级',
-        date: '2025-08-30',
-    },
-]);
+const progressData = ref<any[]>([]);
 
 // 快捷入口
 const quickEntries = ref([
@@ -420,6 +376,85 @@ const currentTodoList = computed(() => {
 const barChartRef = ref<HTMLElement>();
 const lineChartRef = ref<HTMLElement>();
 const donutChartInstances = ref<echarts.ECharts[]>([]);
+
+// 从后端加载首页看板数据
+const loadDashboardData = async () => {
+    try {
+        const res = await apiFetch<{
+            success: boolean;
+            data: {
+                kpis: {
+                    inProduction: { value: number };
+                    unproduced: { value: number };
+                    nonConforming: { value: number };
+                    achievementRate: { value: number };
+                    qualificationRate: { value: number };
+                };
+                workOrderStats: { total: number; items: Array<{ name: string; value: number }> };
+                productStats: { total: number; items: Array<{ name: string; value: number }> };
+                defectStats: { total: number; items: Array<{ name: string; value: number }> };
+                progressTable: any[];
+            };
+        }>('/dashboard/overview');
+
+        if (!res.success) return;
+
+        const { kpis, workOrderStats, productStats, defectStats, progressTable } = res.data;
+
+        // 更新 KPI
+        kpiList.value = kpiList.value.map(item => {
+            if (item.key === 'in-production') {
+                return { ...item, value: String(kpis.inProduction.value) };
+            }
+            if (item.key === 'unproduced') {
+                return { ...item, value: String(kpis.unproduced.value) };
+            }
+            if (item.key === 'non-conforming') {
+                return { ...item, value: String(kpis.nonConforming.value) };
+            }
+            if (item.key === 'achievement-rate') {
+                return { ...item, value: `${kpis.achievementRate.value.toFixed(1)}%` };
+            }
+            if (item.key === 'qualification-rate') {
+                return { ...item, value: `${kpis.qualificationRate.value.toFixed(1)}%` };
+            }
+            return item;
+        });
+
+        // 更新饼图数据
+        donutCharts.value = donutCharts.value.map(chart => {
+            if (chart.key === 'work-order') {
+                return {
+                    ...chart,
+                    total: workOrderStats.total,
+                    data: workOrderStats.items,
+                };
+            }
+            if (chart.key === 'product') {
+                return {
+                    ...chart,
+                    total: productStats.total,
+                    data: productStats.items,
+                };
+            }
+            if (chart.key === 'defect') {
+                return {
+                    ...chart,
+                    total: defectStats.total,
+                    data: defectStats.items,
+                };
+            }
+            return chart;
+        });
+
+        // 更新生产进度表格
+        progressData.value = progressTable;
+    } catch (e) {
+        // 失败时保留静态占位数据（当前已是 0）
+        // eslint-disable-next-line no-console
+        console.error('加载首页看板数据失败', e);
+    }
+};
 
 // 初始化饼图
 const initDonutCharts = () => {
@@ -664,8 +699,10 @@ const initLineChart = () => {
 };
 
 onMounted(() => {
-    initDonutCharts();
-    initBarChart();
-    initLineChart();
+    loadDashboardData().then(() => {
+        initDonutCharts();
+        initBarChart();
+        initLineChart();
+    });
 });
 </script>

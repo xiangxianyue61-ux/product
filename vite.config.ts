@@ -23,6 +23,26 @@ export default defineConfig({
                 target: 'http://localhost:3000',
                 changeOrigin: true,
             },
+            '/production': {
+                target: 'http://localhost:3000',
+                changeOrigin: true,
+            },
+            '/abnormal': {
+                target: 'http://localhost:3000',
+                changeOrigin: true,
+            },
+            '/handling-record': {
+                target: 'http://localhost:3000',
+                changeOrigin: true,
+            },
+            '/warehouse': {
+                target: 'http://localhost:3000',
+                changeOrigin: true,
+            },
+            '/api': {
+                target: 'http://localhost:3000',
+                changeOrigin: true,
+            },
         },
     },
 });

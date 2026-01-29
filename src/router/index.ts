@@ -82,6 +82,12 @@ const routes: RouteRecordRaw[] = [
                 meta: { title: '生产计划', module: 'planning-management' },
             },
             {
+                path: 'planning-management/production-schedule/:id',
+                name: 'ProductionSchedule',
+                component: () => import('../views/planning-management/ProductionSchedule.vue'),
+                meta: { title: '生产计划排程', module: 'planning-management' },
+            },
+            {
                 path: 'planning-management/planning-gantt',
                 name: 'PlanningGantt',
                 component: () => import('../views/planning-management/PlanningGantt.vue'),
