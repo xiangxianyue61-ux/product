@@ -121,6 +121,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 import dayjs, { type Dayjs } from 'dayjs';
+import { apiFetch, type ListResult } from '../../utils/apiClient';
 
 type AchievementRate = {
     id: number;
@@ -242,55 +243,39 @@ const selectedRowKeys = ref<number[]>([]);
 const pagination = reactive({
     current: 1,
     pageSize: 15,
-    total: 56,
+    total: 0,
 });
 
 // 跳转页码
 const jumpPage = ref<number>(1);
 const maxPage = computed(() => Math.max(1, Math.ceil(pagination.total / pagination.pageSize)));
 
-// 模拟数据
-const mockData: AchievementRate[] = Array.from({ length: 56 }, (_, i) => ({
-    id: i + 1,
-    planNumber: 'SCJHDD000001',
-    workOrderNumber: 'SCGD0000001',
-    workOrderName: '外贸一生产工单',
-    productNumber: 'CPBH0000001',
-    productName: '笔记本电脑',
-    specification: '300*400mm',
-    unit: '个',
-    plannedQuantity: 1000,
-    completedQuantity: 990,
-    achievementRate: '99.0%',
-}));
+// 加载数据（从 MongoDB: create.AchievementRate，经 hd /api/productionAchievementRates/list）
+const loadData = async () => {
+    try {
+        const params = new URLSearchParams();
+        params.set('page', String(pagination.current));
+        params.set('pageSize', String(pagination.pageSize));
+        if (searchForm.productName) params.set('productName', searchForm.productName);
 
-// 加载数据
-const loadData = () => {
-    let filteredData = [...mockData];
+        const res = await apiFetch<ListResult<AchievementRate>>(
+            `/api/productionAchievementRates/list?${params.toString()}`
+        );
+        tableData.value = res.data ?? [];
+        pagination.total = res.total ?? 0;
 
-    // 前端筛选
-    if (searchForm.productName) {
-        filteredData = filteredData.filter(item => item.productName.includes(searchForm.productName));
+        // 计算 KPI
+        kpiStats.plannedQuantity = tableData.value.reduce((sum, item) => sum + item.plannedQuantity, 0);
+        kpiStats.completedQuantity = tableData.value.reduce((sum, item) => sum + item.completedQuantity, 0);
+        kpiStats.achievementRate =
+            kpiStats.plannedQuantity > 0
+                ? Number(((kpiStats.completedQuantity / kpiStats.plannedQuantity) * 100).toFixed(1))
+                : 0;
+    } catch (e) {
+        tableData.value = [];
+        pagination.total = 0;
+        message.error(`获取达成率数据失败：${(e as Error).message || '未知错误'}`);
     }
-    if (searchForm.productType) {
-        filteredData = filteredData.filter(item => item.productName.includes(searchForm.productType));
-    }
-
-    // 更新总数
-    pagination.total = filteredData.length;
-
-    // 计算KPI统计
-    kpiStats.plannedQuantity = filteredData.reduce((sum, item) => sum + item.plannedQuantity, 0);
-    kpiStats.completedQuantity = filteredData.reduce((sum, item) => sum + item.completedQuantity, 0);
-    kpiStats.achievementRate =
-        kpiStats.plannedQuantity > 0
-            ? Number(((kpiStats.completedQuantity / kpiStats.plannedQuantity) * 100).toFixed(1))
-            : 0;
-
-    // 分页
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = filteredData.slice(start, end);
 };
 
 // 选择变化

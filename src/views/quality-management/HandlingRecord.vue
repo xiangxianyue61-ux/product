@@ -19,9 +19,9 @@
 
         <a-card class="mb-4" :bordered="false">
             <a-space>
-                <a-button type="primary" @click="noop">新增</a-button>
-                <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
-                <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
+                <a-button type="primary" @click="openCreate">新增</a-button>
+                <a-button @click="openEditBySelection" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
+                <a-button danger @click="deleteBySelection" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
                 <a-button @click="noop">导入</a-button>
                 <a-button @click="noop">导出</a-button>
@@ -36,12 +36,14 @@
                 :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
                 row-key="id"
             >
-                <template #bodyCell="{ column }">
+                <template #bodyCell="{ column, record }">
                     <template v-if="column.key === 'action'">
                         <a-space>
-                            <a @click="noop">详情</a>
-                            <a @click="noop">编辑</a>
-                            <a style="color: #ff4d4f" @click="noop">删除</a>
+                            <a @click="openDetail(record)">详情</a>
+                            <a @click="openEdit(record)">编辑</a>
+                            <a-popconfirm title="确定要删除这条记录吗？" @confirm="deleteOne(record)">
+                                <a style="color: #ff4d4f">删除</a>
+                            </a-popconfirm>
                         </a-space>
                     </template>
                 </template>
@@ -66,12 +68,55 @@
                 </a-space>
             </div>
         </a-card>
+
+        <!-- 详情弹窗 -->
+        <a-modal :open="detailOpen" title="处理记录详情" @cancel="detailOpen = false" :footer="null">
+            <a-descriptions bordered size="small" :column="2">
+                <a-descriptions-item label="处理记录编号">{{ currentRow?.code }}</a-descriptions-item>
+                <a-descriptions-item label="产品名称">{{ currentRow?.name }}</a-descriptions-item>
+                <a-descriptions-item label="处理方式">{{ currentRow?.method }}</a-descriptions-item>
+                <a-descriptions-item label="创建人">{{ currentRow?.creator }}</a-descriptions-item>
+                <a-descriptions-item label="创建时间" :span="2">{{ currentRow?.createTime }}</a-descriptions-item>
+            </a-descriptions>
+        </a-modal>
+
+        <!-- 新增/编辑弹窗 -->
+        <a-modal
+            :open="editOpen"
+            :title="editMode === 'create' ? '新增处理记录' : '编辑处理记录'"
+            @ok="handleSubmit"
+            @cancel="editOpen = false"
+        >
+            <a-form :model="editForm" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
+                <a-form-item label="处理记录编号" required>
+                    <a-input v-model:value="editForm.code" />
+                </a-form-item>
+                <a-form-item label="产品名称" required>
+                    <a-input v-model:value="editForm.name" />
+                </a-form-item>
+                <a-form-item label="处理方式" required>
+                    <a-select v-model:value="editForm.method">
+                        <a-select-option value="返工">返工</a-select-option>
+                        <a-select-option value="返修">返修</a-select-option>
+                        <a-select-option value="报废">报废</a-select-option>
+                        <a-select-option value="让步接收">让步接收</a-select-option>
+                    </a-select>
+                </a-form-item>
+                <a-form-item label="创建人">
+                    <a-input v-model:value="editForm.creator" />
+                </a-form-item>
+                <a-form-item label="创建时间">
+                    <a-input v-model:value="editForm.createTime" placeholder="YYYY.MM.DD HH:mm:ss" />
+                </a-form-item>
+            </a-form>
+        </a-modal>
     </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { apiFetch, type ListResult } from '../../utils/apiClient';
 
 type Row = {
     id: number;
@@ -84,8 +129,9 @@ type Row = {
 
 const searchForm = reactive({ code: '', name: '' });
 const selectedRowKeys = ref<number[]>([]);
+const loading = ref(false);
 
-const pagination = reactive({ current: 1, pageSize: 15, total: 56 });
+const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
 const jumpPage = ref(1);
 const maxPage = computed(() => Math.max(1, Math.ceil(pagination.total / pagination.pageSize)));
 
@@ -105,20 +151,25 @@ const columns = [
 ];
 
 const tableData = ref<Row[]>([]);
+const loadData = async () => {
+    loading.value = true;
+    try {
+        const params = new URLSearchParams();
+        params.set('page', String(pagination.current));
+        params.set('pageSize', String(pagination.pageSize));
+        if (searchForm.code.trim()) params.set('code', searchForm.code.trim());
+        if (searchForm.name.trim()) params.set('name', searchForm.name.trim());
 
-const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
-    id: i + 1,
-    code: `CLJL${String(i + 1).padStart(10, '0')}`,
-    name: `产品${i + 1}`,
-    method: ['返工', '返修', '报废', '让步接收'][i % 4],
-    creator: '刘超',
-    createTime: '2025.04.24 14:00:00',
-}));
-
-const loadData = () => {
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+        const res = await apiFetch<ListResult<Row>>(`/api/qualityHandlingRecords/list?${params.toString()}`);
+        tableData.value = res.data ?? [];
+        pagination.total = res.total ?? 0;
+    } catch (e) {
+        tableData.value = [];
+        pagination.total = 0;
+        message.error(`获取处理记录失败：${(e as Error).message || '未知错误'}`);
+    } finally {
+        loading.value = false;
+    }
 };
 
 const onSelectChange = (keys: number[]) => {
@@ -127,6 +178,7 @@ const onSelectChange = (keys: number[]) => {
 
 const handleSearch = () => {
     pagination.current = 1;
+    selectedRowKeys.value = [];
     loadData();
     message.success('查询成功');
 };
@@ -135,17 +187,20 @@ const handleReset = () => {
     searchForm.code = '';
     searchForm.name = '';
     pagination.current = 1;
+    selectedRowKeys.value = [];
     loadData();
 };
 
 const handlePageChange = (page: number) => {
     pagination.current = page;
+    selectedRowKeys.value = [];
     loadData();
 };
 
 const handlePageSizeChange = (_current: number, size: number) => {
     pagination.current = 1;
     pagination.pageSize = size;
+    selectedRowKeys.value = [];
     loadData();
 };
 
@@ -159,6 +214,81 @@ const handleJumpToPage = () => {
 };
 
 const noop = () => message.info('演示页面：此功能暂未接入后端');
+
+// CRUD
+const detailOpen = ref(false);
+const editOpen = ref(false);
+const editMode = ref<'create' | 'edit'>('create');
+const currentRow = ref<Row | null>(null);
+const editForm = reactive<Row>({ id: 0, code: '', name: '', method: '返工', creator: '', createTime: '' });
+
+const openDetail = (record: Row) => {
+    currentRow.value = record;
+    detailOpen.value = true;
+};
+
+const openCreate = () => {
+    editMode.value = 'create';
+    Object.assign(editForm, { id: 0, code: '', name: '', method: '返工', creator: '', createTime: '' });
+    editOpen.value = true;
+};
+
+const openEdit = (record: Row) => {
+    editMode.value = 'edit';
+    Object.assign(editForm, record);
+    editOpen.value = true;
+};
+
+const openEditBySelection = () => {
+    if (selectedRowKeys.value.length !== 1) return;
+    const id = selectedRowKeys.value[0];
+    const row = tableData.value.find(r => r.id === id);
+    if (row) openEdit(row);
+};
+
+const handleSubmit = async () => {
+    try {
+        const payload = { ...editForm };
+        if (editMode.value === 'create') {
+            await apiFetch(`/api/qualityHandlingRecords`, { method: 'POST', body: JSON.stringify(payload) });
+            message.success('新增成功');
+        } else {
+            await apiFetch(`/api/qualityHandlingRecords/${editForm.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+            });
+            message.success('编辑成功');
+        }
+        editOpen.value = false;
+        await loadData();
+    } catch (e) {
+        message.error(`保存失败：${(e as Error).message || '未知错误'}`);
+    }
+};
+
+const deleteOne = async (record: Row) => {
+    try {
+        await apiFetch(`/api/qualityHandlingRecords/${record.id}`, { method: 'DELETE' });
+        message.success('删除成功');
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
+    }
+};
+
+const deleteBySelection = async () => {
+    if (selectedRowKeys.value.length === 0) return;
+    try {
+        await Promise.all(
+            selectedRowKeys.value.map(id => apiFetch(`/api/qualityHandlingRecords/${id}`, { method: 'DELETE' }))
+        );
+        message.success(`已删除 ${selectedRowKeys.value.length} 条记录`);
+        selectedRowKeys.value = [];
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
+    }
+};
 
 onMounted(() => loadData());
 </script>

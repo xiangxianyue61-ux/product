@@ -37,12 +37,14 @@
                 row-key="id"
                 :scroll="{ x: 1200 }"
             >
-                <template #bodyCell="{ column }">
+                <template #bodyCell="{ column, record }">
                     <template v-if="column.key === 'action'">
                         <a-space>
                             <a @click="noop">详情</a>
                             <a @click="noop">编辑</a>
-                            <a style="color: #ff4d4f" @click="noop">删除</a>
+                            <a-popconfirm title="确定要删除这条记录吗？" @confirm="() => noop()">
+                                <a style="color: #ff4d4f">删除</a>
+                            </a-popconfirm>
                         </a-space>
                     </template>
                 </template>
@@ -99,96 +101,86 @@ const columns = [
 ];
 
 const tableData = ref<Row[]>([]);
-const mock: Row[] = [
-    {
-        id: 1,
-        code: 'CKBH0000000001',
-        name: '一仓库',
-        location: '江苏省常州市新北区黄河西路999号',
-        area: 68000,
-        owner: '李红',
-        remark: '无',
-    },
-    {
-        id: 2,
-        code: 'CKBH0000000001',
-        name: '二仓库',
-        location: '江苏省常州市新北区黄河西路999号',
-        area: 68000,
-        owner: '李红',
-        remark: '无',
-    },
-    {
-        id: 3,
-        code: 'CKBH0000000001',
-        name: '三仓库',
-        location: '江苏省常州市新北区黄河西路999号',
-        area: 68000,
-        owner: '李红',
-        remark: '无',
-    },
-    {
-        id: 4,
-        code: 'CKBH0000000001',
-        name: '四仓库',
-        location: '江苏省常州市新北区黄河西路999号',
-        area: 68000,
-        owner: '李红',
-        remark: '无',
-    },
-    {
-        id: 5,
-        code: 'CKBH0000000001',
-        name: '五仓库',
-        location: '江苏省常州市新北区黄河西路999号',
-        area: 68000,
-        owner: '李红',
-        remark: '无',
-    },
-    {
-        id: 6,
-        code: 'CKBH0000000001',
-        name: '六仓库',
-        location: '江苏省常州市新北区黄河西路999号',
-        area: 68000,
-        owner: '李红',
-        remark: '无',
-    },
-    {
-        id: 7,
-        code: 'CKBH0000000001',
-        name: '七仓库',
-        location: '江苏省常州市新北区黄河西路999号',
-        area: 68000,
-        owner: '李红',
-        remark: '无',
-    },
-    {
-        id: 8,
-        code: 'CKBH0000000001',
-        name: '八仓库',
-        location: '江苏省常州市新北区黄河西路999号',
-        area: 68000,
-        owner: '李红',
-        remark: '无',
-    },
+
+const pad = (n: number, len = 12) => String(n).padStart(len, '0');
+const owners = ['李红', '王敏', '刘超', '张伟', '陈晨', '赵磊'];
+const cities = [
+    { province: '江苏省', city: '常州市', district: '新北区', road: '黄河西路' },
+    { province: '浙江省', city: '杭州市', district: '余杭区', road: '文一西路' },
+    { province: '广东省', city: '深圳市', district: '南山区', road: '科技南一路' },
+    { province: '上海市', city: '上海市', district: '浦东新区', road: '张江高科路' },
+    { province: '四川省', city: '成都市', district: '高新区', road: '天府大道' },
 ];
+const remarks = ['无', '冷链仓', '危险品仓', '保税仓', '恒温仓', '大件仓'];
+
+// 模拟数据（56条，每条不同）
+const mock: Row[] = Array.from({ length: 56 }, (_, idx) => {
+    const i = idx + 1;
+    const c = cities[idx % cities.length]!;
+    const area = 1200 + ((idx * 137) % 98000);
+    const houseNo = 100 + ((idx * 7) % 900);
+    return {
+        id: i,
+        code: `CKBH${pad(i, 10)}`,
+        name: `${['一', '二', '三', '四', '五', '六', '七', '八', '九', '十'][idx % 10] ?? i}仓库`,
+        location: `${c.province}${c.city}${c.district}${c.road}${houseNo}号`,
+        area,
+        owner: owners[(idx * 3) % owners.length]!,
+        remark: remarks[(idx * 5) % remarks.length]!,
+    };
+});
 
 const loadData = () => {
+    const keywordCode = searchForm.code.trim();
+    const keywordName = searchForm.name.trim();
+
+    const filtered = mock.filter(item => {
+        const okCode = !keywordCode || item.code.includes(keywordCode);
+        const okName = !keywordName || item.name.includes(keywordName);
+        return okCode && okName;
+    });
+
+    pagination.total = filtered.length;
+    const maxPage = Math.max(1, Math.ceil(pagination.total / pagination.pageSize));
+    if (pagination.current > maxPage) pagination.current = maxPage;
+
     const start = (pagination.current - 1) * pagination.pageSize;
     const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+    tableData.value = filtered.slice(start, end);
 };
 
-const onSelectChange = (keys: number[]) => (selectedRowKeys.value = keys);
-const handleSearch = () => ((pagination.current = 1), loadData(), message.success('查询成功'));
-const handleReset = () => ((searchForm.code = ''), (searchForm.name = ''), (pagination.current = 1), loadData());
-const handlePageChange = (page: number) => ((pagination.current = page), loadData());
-const handlePageSizeChange = (_current: number, size: number) => (
-    (pagination.current = 1),
-    (pagination.pageSize = size),
-    loadData()
-);
+const onSelectChange = (keys: number[]) => {
+    selectedRowKeys.value = keys;
+};
+
+const handleSearch = () => {
+    pagination.current = 1;
+    selectedRowKeys.value = [];
+    loadData();
+    message.success('查询成功');
+};
+
+const handleReset = () => {
+    searchForm.code = '';
+    searchForm.name = '';
+    pagination.current = 1;
+    selectedRowKeys.value = [];
+    loadData();
+};
+
+const handlePageChange = (page: number) => {
+    pagination.current = page;
+    selectedRowKeys.value = [];
+    loadData();
+};
+
+const handlePageSizeChange = (_current: number, size: number) => {
+    pagination.current = 1;
+    pagination.pageSize = size;
+    selectedRowKeys.value = [];
+    loadData();
+};
+
 const noop = () => message.info('演示页面：此功能暂未接入后端');
 
 onMounted(() => loadData());
