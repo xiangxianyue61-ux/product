@@ -17,6 +17,9 @@
                     <a-menu-item v-for="item in topMenuItems" :key="item.key" :title="item.title">
                         {{ item.title }}
                     </a-menu-item>
+                    <!-- <a-menu-item v-for="item in routerList" :key="item.path" :title="item.meta.title">
+                        {{ item.meta.title }}
+                    </a-menu-item> -->
                 </a-menu>
             </div>
             <div class="flex items-center">
@@ -89,12 +92,22 @@
 <script setup lang="ts">
 import { ref, computed, h, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { onMounted } from 'vue';
 import { BellOutlined, MessageOutlined, FullscreenOutlined, DesktopOutlined } from '@ant-design/icons-vue';
 
 const route = useRoute();
 const router = useRouter();
 
 const collapsed = ref(false);
+
+const routerList = computed(() => {
+    let totalRouterList = router.getRoutes();
+    return totalRouterList.filter(item => {
+        if (item.meta.is_menu) {
+            return true;
+        }
+    });
+});
 
 type SideMenuItem = {
     key: string;

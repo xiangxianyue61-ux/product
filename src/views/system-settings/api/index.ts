@@ -16,6 +16,13 @@ export function getMenuList(params: any) {
         },
     });
 }
+export function getMenuTree() {
+    return http.get('/api/menus/tree', {
+        meta: {
+            action: 'menu_tree',
+        },
+    });
+}
 export function getRoleList(params: any) {
     return http.get('/api/roles', {
         params,
@@ -25,24 +32,21 @@ export function getRoleList(params: any) {
     });
 }
 export function addEmployeeList(data: any) {
-    return http.post('/api/users', {
-        data,
+    return http.post('/api/users', data, {
         meta: {
             action: 'employee_list',
         },
     });
 }
 export function addMenuList(data: any) {
-    return http.post('/api/menus', {
-        data,
+    return http.post('/api/menus', data, {
         meta: {
             action: 'menu_list',
         },
     });
 }
 export function addRoleList(data: any) {
-    return http.post('/api/roles', {
-        data,
+    return http.post('/api/roles', data, {
         meta: {
             action: 'role_list',
         },
