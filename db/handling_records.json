@@ -1,0 +1,243 @@
+[
+  {
+    "id": 1,
+    "code": "CLJL0000000001",
+    "name": "产品1",
+    "method": "返工",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:00:00"
+  },
+  {
+    "id": 2,
+    "code": "CLJL0000000002",
+    "name": "产品2",
+    "method": "返修",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:00:00"
+  },
+  {
+    "id": 3,
+    "code": "CLJL0000000003",
+    "name": "产品3",
+    "method": "报废",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:00:00"
+  },
+  {
+    "id": 4,
+    "code": "CLJL0000000004",
+    "name": "产品4",
+    "method": "让步接收",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:00:00"
+  },
+  {
+    "id": 5,
+    "code": "CLJL0000000005",
+    "name": "产品5",
+    "method": "返工",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:05:00"
+  },
+  {
+    "id": 6,
+    "code": "CLJL0000000006",
+    "name": "产品6",
+    "method": "返修",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:05:00"
+  },
+  {
+    "id": 7,
+    "code": "CLJL0000000007",
+    "name": "产品7",
+    "method": "报废",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:05:00"
+  },
+  {
+    "id": 8,
+    "code": "CLJL0000000008",
+    "name": "产品8",
+    "method": "让步接收",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:05:00"
+  },
+  {
+    "id": 9,
+    "code": "CLJL0000000009",
+    "name": "产品9",
+    "method": "返工",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:10:00"
+  },
+  {
+    "id": 10,
+    "code": "CLJL0000000010",
+    "name": "产品10",
+    "method": "返修",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:10:00"
+  },
+  {
+    "id": 11,
+    "code": "CLJL0000000011",
+    "name": "产品11",
+    "method": "报废",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:10:00"
+  },
+  {
+    "id": 12,
+    "code": "CLJL0000000012",
+    "name": "产品12",
+    "method": "让步接收",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:10:00"
+  },
+  {
+    "id": 13,
+    "code": "CLJL0000000013",
+    "name": "产品13",
+    "method": "返工",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:15:00"
+  },
+  {
+    "id": 14,
+    "code": "CLJL0000000014",
+    "name": "产品14",
+    "method": "返修",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:15:00"
+  },
+  {
+    "id": 15,
+    "code": "CLJL0000000015",
+    "name": "产品15",
+    "method": "报废",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:15:00"
+  },
+  {
+    "id": 16,
+    "code": "CLJL0000000016",
+    "name": "产品16",
+    "method": "让步接收",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:15:00"
+  },
+  {
+    "id": 17,
+    "code": "CLJL0000000017",
+    "name": "产品17",
+    "method": "返工",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:20:00"
+  },
+  {
+    "id": 18,
+    "code": "CLJL0000000018",
+    "name": "产品18",
+    "method": "返修",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:20:00"
+  },
+  {
+    "id": 19,
+    "code": "CLJL0000000019",
+    "name": "产品19",
+    "method": "报废",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:20:00"
+  },
+  {
+    "id": 20,
+    "code": "CLJL0000000020",
+    "name": "产品20",
+    "method": "让步接收",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:20:00"
+  },
+  {
+    "id": 21,
+    "code": "CLJL0000000021",
+    "name": "产品21",
+    "method": "返工",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:25:00"
+  },
+  {
+    "id": 22,
+    "code": "CLJL0000000022",
+    "name": "产品22",
+    "method": "返修",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:25:00"
+  },
+  {
+    "id": 23,
+    "code": "CLJL0000000023",
+    "name": "产品23",
+    "method": "报废",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:25:00"
+  },
+  {
+    "id": 24,
+    "code": "CLJL0000000024",
+    "name": "产品24",
+    "method": "让步接收",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:25:00"
+  },
+  {
+    "id": 25,
+    "code": "CLJL0000000025",
+    "name": "产品25",
+    "method": "返工",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:30:00"
+  },
+  {
+    "id": 26,
+    "code": "CLJL0000000026",
+    "name": "产品26",
+    "method": "返修",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:30:00"
+  },
+  {
+    "id": 27,
+    "code": "CLJL0000000027",
+    "name": "产品27",
+    "method": "报废",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:30:00"
+  },
+  {
+    "id": 28,
+    "code": "CLJL0000000028",
+    "name": "产品28",
+    "method": "让步接收",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:30:00"
+  },
+  {
+    "id": 29,
+    "code": "CLJL0000000029",
+    "name": "产品29",
+    "method": "返工",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:35:00"
+  },
+  {
+    "id": 30,
+    "code": "CLJL0000000030",
+    "name": "产品30",
+    "method": "返修",
+    "creator": "刘超",
+    "createTime": "2025.04.24 14:35:00"
+  }
+]
+

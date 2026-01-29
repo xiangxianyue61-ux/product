@@ -1,5 +1,11 @@
 <template>
     <div class="dashboard-wrapper">
+        <!-- 左上角：返回首页 -->
+        <a-button class="back-home-btn" type="text" @click="goHome">
+            <HomeOutlined />
+            返回首页
+        </a-button>
+
         <!-- 顶部标题和时间 -->
         <div class="dashboard-header">
             <h1 class="dashboard-title">生产综合看板</h1>
@@ -311,6 +317,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -326,6 +333,9 @@ import {
     InboxOutlined,
     ExportOutlined,
 } from '@ant-design/icons-vue';
+
+const router = useRouter();
+const goHome = () => router.push('/home');
 
 // 实时时间
 const currentTime = ref('');
@@ -741,17 +751,18 @@ function initFactory3d() {
     camera.updateProjectionMatrix();
 
     const scene = new THREE.Scene();
-    // 取自截图的背景：深灰偏冷
-    scene.background = new THREE.Color(0x2b2f35);
+    // 让 Three.js 背景透明，由外层容器负责整体配色
+    scene.background = null;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     // 正确的颜色空间 + 色调映射，让 GLB 原始颜色更接近“实物”
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     // 让蓝色更“亮且干净”，贴近截图的观感
     renderer.toneMappingExposure = 1.12;
     renderer.setSize(w, viewH);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // 限制像素比，减轻首屏 GPU 开销
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     el.innerHTML = '';
     el.appendChild(renderer.domElement);
 
@@ -782,7 +793,7 @@ function initFactory3d() {
     fillLight.position.set(-90, 40, -80);
     scene.add(fillLight);
 
-    // 背后加一盏“轮廓光”，让边缘更接近截图的青色描边效果（不改模型材质）
+    // 背后加一盏“轮廓光”，让边缘更接近青色描边效果（不改模型材质）
     const rimLight = new THREE.DirectionalLight(0x46c7ff, 0.45);
     rimLight.position.set(-20, 30, 120);
     scene.add(rimLight);
@@ -951,6 +962,24 @@ const handleResize = () => {
     }
 };
 
+// 在浏览器空闲时再初始化 3D，避免阻塞首屏渲染
+const scheduleFactory3dInit = () => {
+    const anyWindow = window as typeof window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void;
+    };
+    if (anyWindow.requestIdleCallback) {
+        anyWindow.requestIdleCallback(
+            () => {
+                initFactory3d();
+            },
+            { timeout: 2000 }
+        );
+    } else {
+        // 兼容不支持 requestIdleCallback 的浏览器：延后一点再初始化
+        setTimeout(() => initFactory3d(), 600);
+    }
+};
+
 // 初始化 SSE 连接
 const initSSE = () => {
     // 注意：这里需要替换为实际的 SSE 服务器地址
@@ -1008,9 +1037,7 @@ onMounted(() => {
 
     initAllCharts();
     nextTick(() => {
-        setTimeout(() => {
-            initFactory3d();
-        }, 250);
+        scheduleFactory3dInit();
     });
     window.addEventListener('resize', handleResize);
 
@@ -1051,7 +1078,7 @@ onBeforeUnmount(() => {
 }
 
 .dashboard-wrapper {
-    background: #0a0e27;
+    background: radial-gradient(circle at top, #0f1b3a 0, #050814 60%, #020410 100%);
     min-height: 100vh;
     width: 100%;
     padding: 16px;
@@ -1060,6 +1087,39 @@ onBeforeUnmount(() => {
     overflow-x: hidden;
     font-family:
         -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+}
+
+.back-home-btn {
+    position: absolute;
+    left: 16px;
+    top: 14px;
+    z-index: 60;
+    height: 34px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: rgba(230, 250, 255, 0.92);
+    background: rgba(5, 15, 30, 0.65);
+    border: 1px solid rgba(79, 195, 247, 0.35);
+    box-shadow:
+        0 0 12px rgba(79, 195, 247, 0.14),
+        inset 0 0 18px rgba(79, 195, 247, 0.06);
+    border-radius: 8px;
+    pointer-events: auto;
+}
+
+.back-home-btn:hover {
+    color: #ffffff;
+    border-color: rgba(79, 195, 247, 0.65);
+    background: rgba(5, 15, 30, 0.78);
+    box-shadow:
+        0 0 14px rgba(79, 195, 247, 0.22),
+        inset 0 0 18px rgba(79, 195, 247, 0.08);
+}
+
+.back-home-btn :deep(svg) {
+    font-size: 16px;
 }
 
 .dashboard-header {
@@ -1571,7 +1631,8 @@ onBeforeUnmount(() => {
 }
 
 .factory-diagram {
-    background: rgba(20, 30, 50, 0.9);
+    /* 与整体页面统一的深色渐变背景，由 Three.js 透明画布叠加其上 */
+    background: radial-gradient(circle at center, rgba(30, 55, 110, 0.9) 0, rgba(5, 10, 28, 0.98) 70%);
     border: none;
     border-radius: 2px;
     padding: 0;

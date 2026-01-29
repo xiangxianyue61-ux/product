@@ -125,6 +125,71 @@
                 </a-space>
             </div>
         </a-card>
+
+        <!-- 详情弹窗 -->
+        <a-modal :open="detailOpen" title="工单详情" @cancel="detailOpen = false" :footer="null">
+            <a-descriptions bordered size="small" :column="2">
+                <a-descriptions-item label="工单编号">{{ currentRow?.workOrderNumber }}</a-descriptions-item>
+                <a-descriptions-item label="工单名称">{{ currentRow?.workOrderName }}</a-descriptions-item>
+                <a-descriptions-item label="紧急程度">{{ currentRow?.urgencyLevel }}</a-descriptions-item>
+                <a-descriptions-item label="产品编号">{{ currentRow?.productNumber }}</a-descriptions-item>
+                <a-descriptions-item label="产品名称">{{ currentRow?.productName }}</a-descriptions-item>
+                <a-descriptions-item label="生产数量">{{ currentRow?.productionQuantity }}</a-descriptions-item>
+                <a-descriptions-item label="已生产数量">{{ currentRow?.producedQuantity }}</a-descriptions-item>
+                <a-descriptions-item label="单位">{{ currentRow?.unit }}</a-descriptions-item>
+                <a-descriptions-item label="批次号">{{ currentRow?.batchNumber }}</a-descriptions-item>
+                <a-descriptions-item label="计划开工日期">{{ currentRow?.plannedStartDate }}</a-descriptions-item>
+                <a-descriptions-item label="计划年">{{ currentRow?.plannedYear }}</a-descriptions-item>
+            </a-descriptions>
+        </a-modal>
+
+        <!-- 新增/编辑弹窗 -->
+        <a-modal
+            :open="editOpen"
+            :title="editMode === 'create' ? '新增工单' : '编辑工单'"
+            @ok="handleSubmit"
+            @cancel="handleCancelEdit"
+        >
+            <a-form :model="editForm" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
+                <a-form-item label="工单编号" required>
+                    <a-input v-model:value="editForm.workOrderNumber" placeholder="例如 SCGD0000001" />
+                </a-form-item>
+                <a-form-item label="工单名称" required>
+                    <a-input v-model:value="editForm.workOrderName" placeholder="请输入工单名称" />
+                </a-form-item>
+                <a-form-item label="紧急程度" required>
+                    <a-select v-model:value="editForm.urgencyLevel" placeholder="请选择">
+                        <a-select-option value="普通">普通</a-select-option>
+                        <a-select-option value="紧急">紧急</a-select-option>
+                        <a-select-option value="非常紧急">非常紧急</a-select-option>
+                    </a-select>
+                </a-form-item>
+                <a-form-item label="产品编号" required>
+                    <a-input v-model:value="editForm.productNumber" />
+                </a-form-item>
+                <a-form-item label="产品名称" required>
+                    <a-input v-model:value="editForm.productName" />
+                </a-form-item>
+                <a-form-item label="生产数量" required>
+                    <a-input-number v-model:value="editForm.productionQuantity" :min="0" style="width: 100%" />
+                </a-form-item>
+                <a-form-item label="已生产数量" required>
+                    <a-input-number v-model:value="editForm.producedQuantity" :min="0" style="width: 100%" />
+                </a-form-item>
+                <a-form-item label="单位" required>
+                    <a-input v-model:value="editForm.unit" />
+                </a-form-item>
+                <a-form-item label="批次号">
+                    <a-input v-model:value="editForm.batchNumber" />
+                </a-form-item>
+                <a-form-item label="计划开工日期">
+                    <a-input v-model:value="editForm.plannedStartDate" placeholder="YYYY.MM.DD" />
+                </a-form-item>
+                <a-form-item label="计划年">
+                    <a-input v-model:value="editForm.plannedYear" />
+                </a-form-item>
+            </a-form>
+        </a-modal>
     </div>
 </template>
 
@@ -141,6 +206,7 @@ import {
     UploadOutlined,
     DownloadOutlined,
 } from '@ant-design/icons-vue';
+import { apiFetch, type ListResult } from '../../utils/apiClient';
 
 interface WorkOrder {
     id: number;
@@ -264,36 +330,105 @@ const pagination = reactive({
 // 跳转页码
 const jumpPage = ref<number>(1);
 
-// 模拟数据
-const mockData: WorkOrder[] = Array.from({ length: 56 }, (_, i) => ({
-    id: i + 1,
-    workOrderNumber: 'SCGD0000001',
-    workOrderName: '外贸一生产工单',
-    urgencyLevel: '普通',
-    productNumber: 'CP000001',
-    productName: '笔记本电脑',
-    productionQuantity: 1000,
-    producedQuantity: 800,
-    unit: '个',
-    batchNumber: 'PCJ000001',
-    plannedStartDate: '2025.10.01',
-    plannedYear: '2025.',
-}));
-
-// 加载数据
-const loadData = () => {
+const loadData = async () => {
     loading.value = true;
-    setTimeout(() => {
-        const start = (pagination.current - 1) * pagination.pageSize;
-        const end = start + pagination.pageSize;
-        tableData.value = mockData.slice(start, end);
+    try {
+        const params = new URLSearchParams();
+        params.set('page', String(pagination.current));
+        params.set('pageSize', String(pagination.pageSize));
+        if (searchForm.workOrderNumber.trim()) params.set('workOrderNumber', searchForm.workOrderNumber.trim());
+        if (searchForm.workOrderName.trim()) params.set('workOrderName', searchForm.workOrderName.trim());
+
+        const res = await apiFetch<ListResult<WorkOrder>>(`/api/productionWorkOrders/list?${params.toString()}`);
+        tableData.value = res.data ?? [];
+        pagination.total = res.total ?? 0;
+    } catch (e) {
+        tableData.value = [];
+        pagination.total = 0;
+        message.error(`获取工单数据失败：${(e as Error).message || '未知错误'}`);
+    } finally {
         loading.value = false;
-    }, 300);
+    }
+};
+
+// 详情/编辑
+const detailOpen = ref(false);
+const editOpen = ref(false);
+const editMode = ref<'create' | 'edit'>('create');
+const currentRow = ref<WorkOrder | null>(null);
+const editForm = reactive<WorkOrder>({
+    id: 0,
+    workOrderNumber: '',
+    workOrderName: '',
+    urgencyLevel: '普通',
+    productNumber: '',
+    productName: '',
+    productionQuantity: 0,
+    producedQuantity: 0,
+    unit: '个',
+    batchNumber: '',
+    plannedStartDate: '',
+    plannedYear: '',
+});
+
+const openDetail = async (record: WorkOrder) => {
+    currentRow.value = record;
+    detailOpen.value = true;
+};
+
+const openCreate = () => {
+    editMode.value = 'create';
+    Object.assign(editForm, {
+        id: 0,
+        workOrderNumber: '',
+        workOrderName: '',
+        urgencyLevel: '普通',
+        productNumber: '',
+        productName: '',
+        productionQuantity: 0,
+        producedQuantity: 0,
+        unit: '个',
+        batchNumber: '',
+        plannedStartDate: '',
+        plannedYear: '',
+    });
+    editOpen.value = true;
+};
+
+const openEdit = (record: WorkOrder) => {
+    editMode.value = 'edit';
+    Object.assign(editForm, record);
+    editOpen.value = true;
+};
+
+const handleCancelEdit = () => {
+    editOpen.value = false;
+};
+
+const handleSubmit = async () => {
+    try {
+        const payload = { ...editForm };
+        if (editMode.value === 'create') {
+            await apiFetch(`/api/productionWorkOrders`, { method: 'POST', body: JSON.stringify(payload) });
+            message.success('新增成功');
+        } else {
+            await apiFetch(`/api/productionWorkOrders/${editForm.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+            });
+            message.success('编辑成功');
+        }
+        editOpen.value = false;
+        await loadData();
+    } catch (e) {
+        message.error(`保存失败：${(e as Error).message || '未知错误'}`);
+    }
 };
 
 // 搜索
 const handleSearch = () => {
     pagination.current = 1;
+    selectedRowKeys.value = [];
     loadData();
     message.success('查询成功');
 };
@@ -303,35 +438,41 @@ const handleReset = () => {
     searchForm.workOrderNumber = '';
     searchForm.workOrderName = '';
     pagination.current = 1;
+    selectedRowKeys.value = [];
     loadData();
 };
 
 // 新增
 const handleAdd = () => {
-    message.info('新增功能');
+    openCreate();
 };
 
 // 编辑
 const handleEdit = () => {
-    if (selectedRowKeys.value.length === 1) {
-        message.info('编辑功能');
-    }
+    if (selectedRowKeys.value.length !== 1) return;
+    const id = selectedRowKeys.value[0];
+    const row = tableData.value.find(r => r.id === id);
+    if (row) openEdit(row);
 };
 
 // 删除
-const handleDelete = () => {
-    if (selectedRowKeys.value.length === 0) {
-        message.warning('请选择要删除的记录');
-        return;
+const handleDelete = async () => {
+    if (selectedRowKeys.value.length === 0) return message.warning('请选择要删除的记录');
+    try {
+        await Promise.all(
+            selectedRowKeys.value.map(id => apiFetch(`/api/productionWorkOrders/${id}`, { method: 'DELETE' }))
+        );
+        message.success(`已删除 ${selectedRowKeys.value.length} 条记录`);
+        selectedRowKeys.value = [];
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
     }
-    message.success(`已删除 ${selectedRowKeys.value.length} 条记录`);
-    selectedRowKeys.value = [];
-    loadData();
 };
 
 // 查看详情
-const handleViewDetail = (_record: WorkOrder) => {
-    message.info('查看详情');
+const handleViewDetail = (record: WorkOrder) => {
+    openDetail(record);
 };
 
 // 暂停
@@ -368,6 +509,7 @@ const onSelectChange = (keys: number[]) => {
 // 页码变化
 const handlePageChange = (page: number) => {
     pagination.current = page;
+    selectedRowKeys.value = [];
     loadData();
 };
 
@@ -375,6 +517,7 @@ const handlePageChange = (page: number) => {
 const handlePageSizeChange = (_current: number, size: number) => {
     pagination.current = 1;
     pagination.pageSize = size;
+    selectedRowKeys.value = [];
     loadData();
 };
 
@@ -382,6 +525,7 @@ const handlePageSizeChange = (_current: number, size: number) => {
 const handleJumpToPage = () => {
     if (jumpPage.value >= 1 && jumpPage.value <= Math.ceil(pagination.total / pagination.pageSize)) {
         pagination.current = jumpPage.value;
+        selectedRowKeys.value = [];
         loadData();
     } else {
         message.warning('请输入有效的页码');

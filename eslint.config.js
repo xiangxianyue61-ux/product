@@ -39,7 +39,12 @@ export default [
             prettier,
         },
         rules: {
-            'prettier/prettier': 'error',
+            'prettier/prettier': [
+                'error',
+                {
+                    endOfLine: 'auto',
+                },
+            ],
             'no-console': 'warn', // 开发环境也提示
             'no-debugger': 'warn',
         },

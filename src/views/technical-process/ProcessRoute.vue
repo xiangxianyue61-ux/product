@@ -27,12 +27,12 @@
         <!-- 操作按钮区域 -->
         <a-card class="mb-4" :bordered="false">
             <a-space>
-                <a-button type="primary" @click="noop">
+                <a-button type="primary" @click="openCreate">
                     <template #icon><PlusOutlined /></template>
                     新增
                 </a-button>
-                <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
-                <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
+                <a-button @click="openEditBySelection" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
+                <a-button danger @click="deleteBySelection" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
                 <a-button @click="noop">导入</a-button>
                 <a-button @click="noop">导出</a-button>
@@ -51,14 +51,16 @@
                 }"
                 row-key="id"
             >
-                <template #bodyCell="{ column }">
+                <template #bodyCell="{ column, record }">
                     <template v-if="column.key === 'action'">
                         <a-space>
-                            <a @click="noop">详情</a>
+                            <a @click="openDetail(record)">详情</a>
                             <span>|</span>
-                            <a @click="noop">编辑</a>
+                            <a @click="openEdit(record)">编辑</a>
                             <span>|</span>
-                            <a style="color: #ff4d4f" @click="noop">删除</a>
+                            <a-popconfirm title="确定要删除这条工艺路线吗？" @confirm="deleteOne(record)">
+                                <a style="color: #ff4d4f">删除</a>
+                            </a-popconfirm>
                         </a-space>
                     </template>
                 </template>
@@ -88,6 +90,39 @@
                 </a-space>
             </div>
         </a-card>
+
+        <!-- 详情弹窗 -->
+        <a-modal :open="detailOpen" title="工艺路线详情" @cancel="detailOpen = false" :footer="null">
+            <a-descriptions bordered size="small" :column="1">
+                <a-descriptions-item label="路线编号">{{ currentRow?.routeCode }}</a-descriptions-item>
+                <a-descriptions-item label="路线名称">{{ currentRow?.routeName }}</a-descriptions-item>
+                <a-descriptions-item label="工艺路线">{{ currentRow?.routeDescription }}</a-descriptions-item>
+                <a-descriptions-item label="创建时间">{{ currentRow?.createTime }}</a-descriptions-item>
+            </a-descriptions>
+        </a-modal>
+
+        <!-- 新增/编辑弹窗 -->
+        <a-modal
+            :open="editOpen"
+            :title="editMode === 'create' ? '新增工艺路线' : '编辑工艺路线'"
+            @ok="handleSubmit"
+            @cancel="editOpen = false"
+        >
+            <a-form :model="editForm" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
+                <a-form-item label="路线编号" required>
+                    <a-input v-model:value="editForm.routeCode" />
+                </a-form-item>
+                <a-form-item label="路线名称" required>
+                    <a-input v-model:value="editForm.routeName" />
+                </a-form-item>
+                <a-form-item label="工艺路线" required>
+                    <a-textarea v-model:value="editForm.routeDescription" :rows="4" />
+                </a-form-item>
+                <a-form-item label="创建时间">
+                    <a-input v-model:value="editForm.createTime" placeholder="YYYY.MM.DD HH:mm:ss" />
+                </a-form-item>
+            </a-form>
+        </a-modal>
     </div>
 </template>
 
@@ -95,6 +130,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue';
+import { apiFetch, type ListResult } from '../../utils/apiClient';
 
 type ProcessRoute = {
     id: number;
@@ -162,61 +198,30 @@ const selectedRowKeys = ref<number[]>([]);
 const pagination = reactive({
     current: 1,
     pageSize: 15,
-    total: 56,
+    total: 0,
 });
 
 // 跳转页码
 const jumpPage = ref<number>(1);
 const maxPage = computed(() => Math.max(1, Math.ceil(pagination.total / pagination.pageSize)));
 
-// 模拟数据 - 包含详细的工艺路线描述
-const routeDescriptions = [
-    '拿料上线并清洁,检验套袋并下线摆盘',
-    '装前端盖,装转子,装后端盖,冷态电检测,装配精度检测,装键油封,装编码器,调零,装护置压板',
-    '剪线剥线,穿护置压板,压插针,装插头,检验,入库',
-    '下料,切割,打磨,清洗,检验,包装',
-    '组装,调试,测试,检验,入库',
-    '焊接,打磨,抛光,检验,包装',
-    '注塑,冷却,脱模,修边,检验,包装',
-    '冲压,折弯,焊接,表面处理,检验,入库',
-    '机加工,热处理,精加工,检验,入库',
-    '喷涂,烘干,检验,包装',
-    '装配,调试,老化测试,检验,入库',
-    '贴片,焊接,测试,检验,包装',
-    '注塑成型,冷却,脱模,修边,检验,入库',
-    '冲压成型,折弯,焊接,表面处理,检验,包装',
-    '机加工,热处理,精加工,表面处理,检验,入库',
-];
+// 加载数据（从 MongoDB: create.ProcessRoute，经 hd /api/technicalProcessRoutes/list）
+const loadData = async () => {
+    try {
+        const params = new URLSearchParams();
+        params.set('page', String(pagination.current));
+        params.set('pageSize', String(pagination.pageSize));
+        if (searchForm.routeCode) params.set('routeCode', searchForm.routeCode);
+        if (searchForm.routeName) params.set('routeName', searchForm.routeName);
 
-const mockData: ProcessRoute[] = Array.from({ length: 56 }, (_, i) => ({
-    id: i + 1,
-    routeCode: 'DWBH000001',
-    routeName: `第${['一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五'][i % 15]}工艺路线`,
-    routeDescription: routeDescriptions[i % routeDescriptions.length],
-    createTime: '2025.04.24 14:00:00',
-}));
-
-// 加载数据
-const loadData = () => {
-    let filteredData = [...mockData];
-
-    // 前端筛选
-    if (searchForm.routeCode) {
-        filteredData = filteredData.filter(item =>
-            item.routeCode.toLowerCase().includes(searchForm.routeCode.toLowerCase())
-        );
+        const res = await apiFetch<ListResult<ProcessRoute>>(`/api/technicalProcessRoutes/list?${params.toString()}`);
+        tableData.value = res.data ?? [];
+        pagination.total = res.total ?? 0;
+    } catch (e) {
+        tableData.value = [];
+        pagination.total = 0;
+        message.error(`获取工艺路线数据失败：${(e as Error).message || '未知错误'}`);
     }
-    if (searchForm.routeName) {
-        filteredData = filteredData.filter(item => item.routeName.includes(searchForm.routeName));
-    }
-
-    // 更新总数
-    pagination.total = filteredData.length;
-
-    // 分页
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = filteredData.slice(start, end);
 };
 
 // 选择变化
@@ -259,6 +264,96 @@ const handleJumpToPage = () => {
         loadData();
     } else {
         message.warning('请输入有效的页码');
+    }
+};
+
+// CRUD 弹窗状态
+const detailOpen = ref(false);
+const editOpen = ref(false);
+const editMode = ref<'create' | 'edit'>('create');
+const currentRow = ref<ProcessRoute | null>(null);
+const editForm = reactive<ProcessRoute>({
+    id: 0,
+    routeCode: '',
+    routeName: '',
+    routeDescription: '',
+    createTime: '',
+});
+
+const openDetail = (record: ProcessRoute) => {
+    currentRow.value = record;
+    detailOpen.value = true;
+};
+
+const openCreate = () => {
+    editMode.value = 'create';
+    Object.assign(editForm, {
+        id: 0,
+        routeCode: '',
+        routeName: '',
+        routeDescription: '',
+        createTime: '',
+    });
+    editOpen.value = true;
+};
+
+const openEdit = (record: ProcessRoute) => {
+    editMode.value = 'edit';
+    Object.assign(editForm, record);
+    editOpen.value = true;
+};
+
+const openEditBySelection = () => {
+    if (selectedRowKeys.value.length !== 1) return;
+    const id = selectedRowKeys.value[0];
+    const row = tableData.value.find(item => item.id === id);
+    if (row) openEdit(row);
+};
+
+const handleSubmit = async () => {
+    try {
+        const payload = { ...editForm };
+        if (editMode.value === 'create') {
+            await apiFetch('/api/technicalProcessRoutes', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+            message.success('新增成功');
+        } else {
+            await apiFetch(`/api/technicalProcessRoutes/${editForm.id}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+            });
+            message.success('编辑成功');
+        }
+        editOpen.value = false;
+        await loadData();
+    } catch (e) {
+        message.error(`保存失败：${(e as Error).message || '未知错误'}`);
+    }
+};
+
+const deleteOne = async (record: ProcessRoute) => {
+    try {
+        await apiFetch(`/api/technicalProcessRoutes/${record.id}`, { method: 'DELETE' });
+        message.success('删除成功');
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
+    }
+};
+
+const deleteBySelection = async () => {
+    if (selectedRowKeys.value.length === 0) return;
+    try {
+        await Promise.all(
+            selectedRowKeys.value.map(id => apiFetch(`/api/technicalProcessRoutes/${id}`, { method: 'DELETE' }))
+        );
+        message.success(`已删除 ${selectedRowKeys.value.length} 条记录`);
+        selectedRowKeys.value = [];
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
     }
 };
 
