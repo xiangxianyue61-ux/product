@@ -25,6 +25,7 @@
                 <a-button @click="noop">打印</a-button>
                 <a-button @click="noop">导入</a-button>
                 <a-button @click="noop">导出</a-button>
+                <a-button @click="handleSimulateAdd">模拟添加数据</a-button>
             </a-space>
         </a-card>
 
@@ -287,14 +288,45 @@ const handleAddSubmit = async () => {
         message.warning('请填写必填项');
         return;
     }
+    // 映射前端字段到后端模型
+    const submitData = {
+        ...addForm,
+        type: addForm.menuType === '3' ? 'button' : 'menu', // 简单映射
+    };
     try {
-        const res = await addMenuList(addForm);
+        const res = await addMenuList(submitData);
         if (res.data.success) {
             message.success('添加成功');
             addModalVisible.value = false;
             getMenuListData();
         } else {
             message.error(res.data.message || '添加失败');
+        }
+    } catch (error) {
+        // 错误已由拦截器处理
+    }
+};
+
+// 模拟添加数据
+const handleSimulateAdd = async () => {
+    const randomId = Math.floor(Math.random() * 10000);
+    const mockData = {
+        name: `Menu_${randomId}`,
+        title: `测试菜单${randomId}`,
+        path: `/test-menu-${randomId}`,
+        component: '/views/Test.vue',
+        icon: 'AppstoreOutlined',
+        sort: randomId % 100,
+        type: 'menu',
+        permission: `sys:test:${randomId}`,
+    };
+    try {
+        const res = await addMenuList(mockData);
+        if (res.data.success) {
+            message.success(`模拟添加成功：${mockData.title}`);
+            getMenuListData();
+        } else {
+            message.error(res.data.message || '模拟添加失败');
         }
     } catch (error) {
         // 错误已由拦截器处理

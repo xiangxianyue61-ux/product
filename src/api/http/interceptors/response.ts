@@ -32,7 +32,7 @@ export function setupResponseInterceptor(instance: AxiosInstance) {
                     status: err.response?.status,
                     success: false,
                     errorMsg: err.message,
-                });
+                } as ApiMonitor);
             }
             // 处理 401 未授权错误，尝试刷新 token
             if (err.response?.status === 401 && !config._isRetry) {

@@ -2,6 +2,9 @@
 import { ref } from 'vue';
 import { login } from '../api/modules/auth';
 import { useRouter } from 'vue-router';
+import { useStore } from 'vuex';
+
+const store = useStore();
 const router = useRouter();
 // 1. 定义表单响应式数据
 const formData = ref({
@@ -32,9 +35,8 @@ const handleLogin = async () => {
     try {
         const res = await login(formData.value);
         if (res.data.success) {
-            if (res.data.token) {
-                localStorage.setItem('access_token', res.data.token);
-            }
+            console.log(res.data, 'qw');
+            store.commit('login', { role: res.data.user.role.description, token: res.data.token });
             router.push('/profile');
         } else {
             alert(res.data.msg || '登录失败');
