@@ -55,18 +55,17 @@
                     </template>
                     打印
                 </a-button>
-                <a-button @click="handleImport">
-                    <template #icon>
-                        <UploadOutlined />
-                    </template>
-                    导入
-                </a-button>
-                <a-button @click="handleExport">
-                    <template #icon>
-                        <DownloadOutlined />
-                    </template>
-                    导出
-                </a-button>
+                <ImportExportBar
+                    :import-headers="IMPORT_HEADERS"
+                    :import-header-keys="[...IMPORT_HEADER_KEYS]"
+                    template-filename="生产工单导入模板"
+                    template-example-row="SCGD00000001,外贸1生产工单,普通,CP000001,笔记本电脑,200,50,台,PC/001001,2025.01.01,2025"
+                    export-filename-prefix="生产工单"
+                    :export-headers="IMPORT_HEADERS"
+                    :get-export-data="getExportData"
+                    :get-export-row-values="(row: unknown) => getExportRowValues(row as WorkOrder)"
+                    :on-import-submit="submitWorkOrderImport"
+                />
             </a-space>
         </a-card>
 
@@ -203,10 +202,9 @@ import {
     EditOutlined,
     DeleteOutlined,
     PrinterOutlined,
-    UploadOutlined,
-    DownloadOutlined,
 } from '@ant-design/icons-vue';
 import { apiFetch, type ListResult } from '../../utils/apiClient';
+import ImportExportBar from '../../components/ImportExportBar.vue';
 
 interface WorkOrder {
     id: number;
@@ -491,14 +489,81 @@ const handlePrint = () => {
     message.info('打印功能');
 };
 
-// 导入
-const handleImport = () => {
-    message.info('导入功能');
-};
+const IMPORT_HEADERS = [
+    '工单编号',
+    '工单名称',
+    '紧急程度',
+    '产品编号',
+    '产品名称',
+    '生产数量',
+    '已生产数量',
+    '单位',
+    '批次号',
+    '计划开工日期',
+    '计划年',
+];
+const IMPORT_HEADER_KEYS = [
+    'workOrderNumber',
+    'workOrderName',
+    'urgencyLevel',
+    'productNumber',
+    'productName',
+    'productionQuantity',
+    'producedQuantity',
+    'unit',
+    'batchNumber',
+    'plannedStartDate',
+    'plannedYear',
+] as const;
 
-// 导出
-const handleExport = () => {
-    message.success('导出成功');
+const getExportData = () => tableData.value;
+const getExportRowValues = (r: WorkOrder): (string | number)[] => [
+    r.workOrderNumber,
+    r.workOrderName,
+    r.urgencyLevel,
+    r.productNumber,
+    r.productName,
+    r.productionQuantity,
+    r.producedQuantity,
+    r.unit,
+    r.batchNumber,
+    r.plannedStartDate,
+    r.plannedYear,
+];
+
+const submitWorkOrderImport = async (rows: Record<string, string>[]) => {
+    let ok = 0;
+    let err = 0;
+    const maxId = tableData.value.length ? Math.max(...tableData.value.map(r => r.id || 0), 0) : 0;
+    let nextId = maxId + 1;
+    for (const row of rows) {
+        const payload: WorkOrder = {
+            id: nextId++,
+            workOrderNumber: row.workOrderNumber || '',
+            workOrderName: row.workOrderName || '',
+            urgencyLevel: row.urgencyLevel || '普通',
+            productNumber: row.productNumber || '',
+            productName: row.productName || '',
+            productionQuantity: Number(row.productionQuantity) || 0,
+            producedQuantity: Number(row.producedQuantity) || 0,
+            unit: row.unit || '',
+            batchNumber: row.batchNumber || '',
+            plannedStartDate: row.plannedStartDate || '',
+            plannedYear: row.plannedYear || '',
+        };
+        try {
+            await apiFetch('/api/productionWorkOrders', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+            ok++;
+        } catch {
+            err++;
+        }
+    }
+    await loadData();
+    if (err === 0) message.success(`成功导入 ${ok} 条`);
+    else message.warning(`导入完成：成功 ${ok} 条，失败 ${err} 条`);
 };
 
 // 选择变化

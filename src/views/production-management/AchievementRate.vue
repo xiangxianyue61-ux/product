@@ -148,11 +148,11 @@ const searchForm = reactive<{
     productType: '',
 });
 
-// KPI统计
+// KPI统计（初始为 0，避免“先闪占位数再变 0”的闪烁）
 const kpiStats = reactive({
-    plannedQuantity: 589,
-    completedQuantity: 527,
-    achievementRate: 99.0,
+    plannedQuantity: 0,
+    completedQuantity: 0,
+    achievementRate: 0,
 });
 
 // 表格列定义
@@ -264,16 +264,18 @@ const loadData = async () => {
         tableData.value = res.data ?? [];
         pagination.total = res.total ?? 0;
 
-        // 计算 KPI
-        kpiStats.plannedQuantity = tableData.value.reduce((sum, item) => sum + item.plannedQuantity, 0);
-        kpiStats.completedQuantity = tableData.value.reduce((sum, item) => sum + item.completedQuantity, 0);
-        kpiStats.achievementRate =
-            kpiStats.plannedQuantity > 0
-                ? Number(((kpiStats.completedQuantity / kpiStats.plannedQuantity) * 100).toFixed(1))
-                : 0;
+        // 计算 KPI（兼容接口字段缺失）
+        const planned = tableData.value.reduce((sum, item) => sum + (Number(item.plannedQuantity) || 0), 0);
+        const completed = tableData.value.reduce((sum, item) => sum + (Number(item.completedQuantity) || 0), 0);
+        kpiStats.plannedQuantity = planned;
+        kpiStats.completedQuantity = completed;
+        kpiStats.achievementRate = planned > 0 ? Number(((completed / planned) * 100).toFixed(1)) : 0;
     } catch (e) {
         tableData.value = [];
         pagination.total = 0;
+        kpiStats.plannedQuantity = 0;
+        kpiStats.completedQuantity = 0;
+        kpiStats.achievementRate = 0;
         message.error(`获取达成率数据失败：${(e as Error).message || '未知错误'}`);
     }
 };
