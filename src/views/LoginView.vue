@@ -37,13 +37,22 @@ const handleLogin = async () => {
         if (res.data.success) {
             // 优先使用 role.name (如 'admin')，如果没有则尝试 description，最后默认为 'user'
             console.log(res.data.user, 'role');
-            const roleName = res.data.user.role?.description || 'user';
+            // 获取角色信息和菜单权限
+            const roleInfo = res.data.user.role;
+            const roleName = roleInfo?.name || 'user'; // 使用 role.name (code) 作为标识
             const isFirstLogin = !!res.data.user.isFirstLogin;
+
+            // 提取菜单权限 (假设 menus 是 populated 的对象数组，我们需要 name 列表)
+            let menus = [];
+            if (roleInfo && roleInfo.menus) {
+                menus = roleInfo.menus.map((m: any) => m.name); // 使用路由 name
+            }
 
             store.commit('login', {
                 role: roleName,
                 token: res.data.token,
                 isFirstLogin: isFirstLogin,
+                menus: menus,
             });
 
             if (isFirstLogin) {
