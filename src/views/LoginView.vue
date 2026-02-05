@@ -35,9 +35,22 @@ const handleLogin = async () => {
     try {
         const res = await login(formData.value);
         if (res.data.success) {
-            console.log(res.data, 'qw');
-            store.commit('login', { role: res.data.user.role.description, token: res.data.token });
-            router.push('/profile');
+            // 优先使用 role.name (如 'admin')，如果没有则尝试 description，最后默认为 'user'
+            console.log(res.data.user, 'role');
+            const roleName = res.data.user.role?.description || 'user';
+            const isFirstLogin = !!res.data.user.isFirstLogin;
+
+            store.commit('login', {
+                role: roleName,
+                token: res.data.token,
+                isFirstLogin: isFirstLogin,
+            });
+
+            if (isFirstLogin) {
+                router.push('/profile');
+            } else {
+                router.push('/home');
+            }
         } else {
             alert(res.data.msg || '登录失败');
         }

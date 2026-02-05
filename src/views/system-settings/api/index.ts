@@ -38,6 +38,13 @@ export function addEmployeeList(data: any) {
         },
     });
 }
+export function updateEmployeeList(id: string, data: any) {
+    return http.put(`/api/users/${id}`, data, {
+        meta: {
+            action: 'employee_list',
+        },
+    });
+}
 export function addMenuList(data: any) {
     return http.post('/api/menus', data, {
         meta: {
@@ -49,6 +56,20 @@ export function addRoleList(data: any) {
     return http.post('/api/roles', data, {
         meta: {
             action: 'role_list',
+        },
+    });
+}
+export function updateRoleList(id: string, data: any) {
+    return http.put(`/api/roles/${id}`, data, {
+        meta: {
+            action: 'role_list',
+        },
+    });
+}
+export function getSystemProfile() {
+    return http.get('/xx/me', {
+        meta: {
+            action: 'user_profile',
         },
     });
 }
