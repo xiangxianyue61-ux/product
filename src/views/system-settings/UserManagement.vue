@@ -72,7 +72,7 @@
 
         <!-- 新增/编辑用户弹窗 -->
         <a-modal
-            v-model:visible="addModalVisible"
+            v-model:open="addModalVisible"
             :title="currentId ? '编辑用户' : '新增用户'"
             @ok="handleAddSubmit"
             @cancel="handleAddCancel"
@@ -170,14 +170,20 @@ const columns = [
 const tableData = ref<Row[]>([]);
 
 const getEmployeeListData = async () => {
-    const res = await getEmployeeList({
-        page: pagination.current,
-        limit: pagination.pageSize,
-        username: searchForm.username,
-    });
-    if (res.data.success) {
-        tableData.value = res.data.data;
-        pagination.total = res.data.total;
+    try {
+        const res = await getEmployeeList({
+            page: pagination.current,
+            limit: pagination.pageSize,
+            username: searchForm.username,
+        });
+        if (res.data.success) {
+            tableData.value = res.data.data;
+            pagination.total = res.data.total;
+        } else {
+            message.error(res.data.message || '获取数据失败');
+        }
+    } catch (error) {
+        console.error('Fetch employee list error:', error);
     }
 };
 

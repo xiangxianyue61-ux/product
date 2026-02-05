@@ -538,13 +538,13 @@ const routes: RouteRecordRaw[] = [
                         component: () => import('../views/system-settings/CodingRules.vue'),
                         meta: { title: '编码规则', module: 'system-settings', role: ['admin'] },
                     },
+                    {
+                        path: 'profile',
+                        name: 'Profile',
+                        component: () => import('../views/system-settings/Profile.vue'),
+                        meta: { title: '个人中心', module: 'system-settings', role: ['user', 'admin'] },
+                    },
                 ],
-            },
-            {
-                path: 'profile',
-                name: 'Profile',
-                component: () => import('../views/system-settings/Profile.vue'),
-                meta: { title: '个人中心', module: 'system-settings', role: ['user', 'admin'] },
             },
         ],
     },
@@ -576,6 +576,23 @@ router.beforeEach((to, from, next) => {
 
     //1.当前访问的路由
     console.log(to.meta.role, '1');
+
+    // 超级管理员放行
+    if (store.state.role === 'admin') {
+        next();
+        return;
+    }
+
+    // 检查动态菜单权限
+    const allowedMenus = store.state.menus || [];
+    // 如果路由有 name 且在允许的菜单列表中，放行
+    // 注意：有些路由可能是隐藏的详情页，可能不在 menus 里，这里暂时只对显式菜单做强校验
+    // 或者我们假设后端返回了所有有权限的路由 name（包括隐藏的）
+    if (to.name && allowedMenus.includes(to.name as string)) {
+        next();
+        return;
+    }
+
     if (to.meta.role) {
         //2.获取当前vuex中自己的角色
         //3.to.meta.role就是允许的角色列表["user","admin"]
@@ -583,11 +600,13 @@ router.beforeEach((to, from, next) => {
         let userRole = store.state.role;
         let allowRoleList = to.meta.role as string[];
         if (allowRoleList.indexOf(userRole) === -1) {
+            // 如果角色不匹配，且不在动态菜单列表中 -> 无权访问
             next({ name: 'Login' });
         } else {
             next();
         }
     } else {
+        // 没有设置权限的路由，默认放行 (或者根据需求拦截)
         next();
     }
 });
