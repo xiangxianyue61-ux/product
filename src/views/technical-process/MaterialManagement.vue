@@ -34,8 +34,17 @@
                 <a-button @click="openEditBySelection" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="deleteBySelection" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
-                <a-button @click="noop">导入</a-button>
-                <a-button @click="noop">导出</a-button>
+                <ImportExportBar
+                    :import-headers="IMPORT_HEADERS"
+                    :import-header-keys="[...IMPORT_HEADER_KEYS]"
+                    template-filename="物料管理导入模板"
+                    template-example-row="WLBM00000001,笔记本电脑,采购件,300*400mm,台,启用,2025.04.24 14:00:00"
+                    export-filename-prefix="物料管理"
+                    :export-headers="IMPORT_HEADERS"
+                    :get-export-data="getExportData"
+                    :get-export-row-values="(row: unknown) => getExportRowValues(row as Row)"
+                    :on-import-submit="submitMaterialImport"
+                />
             </a-space>
         </a-card>
 
@@ -146,6 +155,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
 import { PlusOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons-vue';
 import { apiFetch, type ListResult } from '../../utils/apiClient';
+import ImportExportBar from '../../components/ImportExportBar.vue';
 
 type Row = {
     id: number;
@@ -336,6 +346,48 @@ const deleteBySelection = async () => {
 };
 
 const noop = () => message.info('演示页面：此功能暂未接入后端');
+
+// ---------- 导入 / 导出 ----------
+const IMPORT_HEADERS = ['物料编号', '物料名称', '制造方式', '规格', '单位', '状态', '创建时间'];
+const IMPORT_HEADER_KEYS = ['code', 'name', 'method', 'spec', 'unit', 'status', 'createTime'] as const;
+
+const getExportData = () => tableData.value;
+const getExportRowValues = (r: Row): (string | number)[] => [
+    r.code,
+    r.name,
+    r.method,
+    r.spec,
+    r.unit,
+    r.status === 'disabled' ? '停用' : '启用',
+    r.createTime ?? '',
+];
+
+const submitMaterialImport = async (rows: Record<string, string>[]) => {
+    let ok = 0;
+    let err = 0;
+    for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const payload = {
+            id: Date.now() + i,
+            code: row.code || '',
+            name: row.name || '',
+            method: row.method || '自制件',
+            spec: row.spec || '',
+            unit: row.unit || '',
+            status: row.status === '停用' ? 'disabled' : row.status || 'enabled',
+            createTime: row.createTime || '',
+        };
+        try {
+            await apiFetch('/api/technicalMaterials', { method: 'POST', body: JSON.stringify(payload) });
+            ok++;
+        } catch {
+            err++;
+        }
+    }
+    await loadData();
+    if (err === 0) message.success(`成功导入 ${ok} 条`);
+    else message.warning(`导入完成：成功 ${ok} 条，失败 ${err} 条`);
+};
 
 onMounted(() => loadData());
 </script>

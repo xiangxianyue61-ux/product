@@ -333,8 +333,74 @@ import {
     InboxOutlined,
     ExportOutlined,
 } from '@ant-design/icons-vue';
+import { apiFetch } from '../utils/apiClient';
 
 const router = useRouter();
+
+// 设备状态图标（后端不返回组件，前端按顺序绑定）
+const EQUIPMENT_ICONS = [RobotOutlined, ToolOutlined, CloudOutlined];
+
+function applyDataBoardPayload(data: Record<string, unknown>) {
+    if (data.dailyProduction !== undefined) dashboardData.value.dailyProduction = data.dailyProduction as number;
+    if (data.plannedProduction !== undefined) dashboardData.value.plannedProduction = data.plannedProduction as number;
+    if (data.completionRate !== undefined) dashboardData.value.completionRate = data.completionRate as number;
+    if (data.dailyProductionData)
+        dashboardData.value.dailyProductionData =
+            data.dailyProductionData as typeof dashboardData.value.dailyProductionData;
+    if (data.accumulatedProduction !== undefined)
+        dashboardData.value.accumulatedProduction = data.accumulatedProduction as number;
+    if (data.accumulatedProducts)
+        dashboardData.value.accumulatedProducts =
+            data.accumulatedProducts as typeof dashboardData.value.accumulatedProducts;
+    if (data.rawMaterialIn !== undefined) dashboardData.value.rawMaterialIn = data.rawMaterialIn as number;
+    if (data.rawMaterialInMonthly !== undefined)
+        dashboardData.value.rawMaterialInMonthly = data.rawMaterialInMonthly as number;
+    if (data.finishedProductIn !== undefined) dashboardData.value.finishedProductIn = data.finishedProductIn as number;
+    if (data.finishedProductInMonthly !== undefined)
+        dashboardData.value.finishedProductInMonthly = data.finishedProductInMonthly as number;
+    if (data.finishedProductOut !== undefined)
+        dashboardData.value.finishedProductOut = data.finishedProductOut as number;
+    if (data.finishedProductOutMonthly !== undefined)
+        dashboardData.value.finishedProductOutMonthly = data.finishedProductOutMonthly as number;
+    if (data.defectDistribution)
+        dashboardData.value.defectDistribution =
+            data.defectDistribution as typeof dashboardData.value.defectDistribution;
+    if (data.inProduction !== undefined) dashboardData.value.inProduction = data.inProduction as number;
+    if (data.unproduced !== undefined) dashboardData.value.unproduced = data.unproduced as number;
+    if (data.nonConforming !== undefined) dashboardData.value.nonConforming = data.nonConforming as number;
+    if (data.achievementRate !== undefined) dashboardData.value.achievementRate = data.achievementRate as number;
+    if (data.qualificationRate !== undefined) dashboardData.value.qualificationRate = data.qualificationRate as number;
+    if (data.equipmentStatus && Array.isArray(data.equipmentStatus)) {
+        type EquipmentItem = { name: string; total: number; online: number; utilization: number };
+        dashboardData.value.equipmentStatus = (data.equipmentStatus as EquipmentItem[]).map((item, i) => ({
+            ...item,
+            iconComponent: EQUIPMENT_ICONS[i] ?? RobotOutlined,
+        }));
+    }
+    if (data.rawMaterialLossRate !== undefined)
+        dashboardData.value.rawMaterialLossRate = data.rawMaterialLossRate as number;
+    if (data.rawMaterialWarning !== undefined)
+        dashboardData.value.rawMaterialWarning = data.rawMaterialWarning as number;
+    if (data.rawMaterialStock !== undefined) dashboardData.value.rawMaterialStock = data.rawMaterialStock as number;
+    if (data.rawMaterialStockChange !== undefined)
+        dashboardData.value.rawMaterialStockChange = data.rawMaterialStockChange as number;
+    if (data.rawMaterialInbound !== undefined)
+        dashboardData.value.rawMaterialInbound = data.rawMaterialInbound as number;
+    if (data.rawMaterialInboundChange !== undefined)
+        dashboardData.value.rawMaterialInboundChange = data.rawMaterialInboundChange as number;
+    if (data.finishedProductInbound !== undefined)
+        dashboardData.value.finishedProductInbound = data.finishedProductInbound as number;
+    if (data.finishedProductInboundChange !== undefined)
+        dashboardData.value.finishedProductInboundChange = data.finishedProductInboundChange as number;
+    if (data.finishedProductOutbound !== undefined)
+        dashboardData.value.finishedProductOutbound = data.finishedProductOutbound as number;
+    if (data.finishedProductOutboundChange !== undefined)
+        dashboardData.value.finishedProductOutboundChange = data.finishedProductOutboundChange as number;
+    if (data.productionProgress)
+        dashboardData.value.productionProgress =
+            data.productionProgress as typeof dashboardData.value.productionProgress;
+    if (data.alarms) dashboardData.value.alarms = data.alarms as typeof dashboardData.value.alarms;
+}
 const goHome = () => router.push('/home');
 
 // 实时时间
@@ -486,8 +552,11 @@ let factory3dControls: OrbitControls | null = null;
 let factory3dLabelRenderer: CSS2DRenderer | null = null;
 let factory3dRafId: number | null = null;
 
-// SSE 连接
+// 实时数据双轨：WebSocket 优先，失败则回退 SSE
+let dashboardSocket: WebSocket | null = null;
 let eventSource: EventSource | null = null;
+let realtimeReconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let wsOpenTimeout: ReturnType<typeof setTimeout> | null = null;
 
 // 格式化数字（补零）
 const formatNumber = (num: number): string => {
@@ -980,75 +1049,145 @@ const scheduleFactory3dInit = () => {
     }
 };
 
-// 初始化 SSE 连接
-const initSSE = () => {
-    // 注意：这里需要替换为实际的 SSE 服务器地址
-    // 例如：const sseUrl = 'http://localhost:3000/api/dashboard/sse';
-    const sseUrl = '/api/dashboard/sse';
+// 刷新图表（SSE 推送后调用，数据已写入 dashboardData）
+const refreshDataBoardCharts = () => {
+    nextTick(() => {
+        initDailyProductionChart();
+        initAccumulatedChart();
+        initDefectChart();
+    });
+};
 
+// 应用实时推送数据并刷新图表
+const applyRealtimePayload = (raw: string) => {
     try {
-        eventSource = new EventSource(sseUrl);
-
-        eventSource.onmessage = event => {
-            try {
-                const data = JSON.parse(event.data);
-                // 更新看板数据
-                if (data.dailyProduction !== undefined) {
-                    dashboardData.value.dailyProduction = data.dailyProduction;
-                }
-                if (data.completionRate !== undefined) {
-                    dashboardData.value.completionRate = data.completionRate;
-                }
-                if (data.dailyProductionData) {
-                    dashboardData.value.dailyProductionData = data.dailyProductionData;
-                    initDailyProductionChart();
-                }
-                if (data.accumulatedProduction !== undefined) {
-                    dashboardData.value.accumulatedProduction = data.accumulatedProduction;
-                }
-                if (data.defectDistribution) {
-                    dashboardData.value.defectDistribution = data.defectDistribution;
-                    initDefectChart();
-                }
-                if (data.equipmentStatus) {
-                    dashboardData.value.equipmentStatus = data.equipmentStatus;
-                }
-                if (data.alarms) {
-                    dashboardData.value.alarms = data.alarms;
-                }
-                // 可以根据需要更新其他字段
-            } catch {
-                // 解析 SSE 数据失败
-            }
-        };
-
-        eventSource.onerror = () => {
-            // SSE 连接错误
-            // 可以在这里实现重连逻辑
-        };
+        const data = JSON.parse(raw);
+        applyDataBoardPayload(data);
+        refreshDataBoardCharts();
     } catch {
-        // 初始化 SSE 连接失败，如果 SSE 服务器不可用，可以继续使用静态数据
+        // 解析失败忽略
     }
 };
 
-onMounted(() => {
-    updateTime();
-    setInterval(updateTime, 1000); // 每秒更新一次时间
+// 初始化 WebSocket（双轨优先）
+const initWebSocket = () => {
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = location.host;
+    const path = '/dashboard-ws';
+    const token = localStorage.getItem('access_token');
+    const wsUrl = token
+        ? `${protocol}//${host}${path}?token=${encodeURIComponent(token)}`
+        : `${protocol}//${host}${path}`;
+    try {
+        dashboardSocket = new WebSocket(wsUrl);
+        wsOpenTimeout = window.setTimeout(() => {
+            wsOpenTimeout = null;
+            if (dashboardSocket && dashboardSocket.readyState !== WebSocket.OPEN) {
+                dashboardSocket.close();
+                dashboardSocket = null;
+                initSSE();
+            }
+        }, 2000);
+        dashboardSocket.onopen = () => {
+            if (wsOpenTimeout) {
+                clearTimeout(wsOpenTimeout);
+                wsOpenTimeout = null;
+            }
+        };
+        dashboardSocket.onmessage = ev => applyRealtimePayload(ev.data);
+        dashboardSocket.onclose = () => {
+            if (wsOpenTimeout) {
+                clearTimeout(wsOpenTimeout);
+                wsOpenTimeout = null;
+            }
+            dashboardSocket = null;
+            realtimeReconnectTimer = setTimeout(() => initRealtime(), 3000);
+        };
+        dashboardSocket.onerror = () => {
+            if (dashboardSocket) {
+                dashboardSocket.close();
+                dashboardSocket = null;
+            }
+            realtimeReconnectTimer = setTimeout(() => initRealtime(), 3000);
+        };
+    } catch {
+        initSSE();
+    }
+};
 
-    initAllCharts();
+// 初始化 SSE（双轨回退）
+const initSSE = () => {
+    const token = localStorage.getItem('access_token');
+    const sseUrl = token ? `/dashboard/data-sse?token=${encodeURIComponent(token)}` : '/dashboard/data-sse';
+    try {
+        eventSource = new EventSource(sseUrl);
+        eventSource.onmessage = ev => applyRealtimePayload(ev.data);
+        eventSource.onerror = () => {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                realtimeReconnectTimer = setTimeout(() => initRealtime(), 3000);
+            }
+        };
+    } catch {
+        // SSE 不可用时仅用已有数据
+    }
+};
+
+// 双轨：优先 WebSocket，失败则 SSE
+const initRealtime = () => {
+    if (realtimeReconnectTimer) {
+        clearTimeout(realtimeReconnectTimer);
+        realtimeReconnectTimer = null;
+    }
+    if (dashboardSocket) {
+        dashboardSocket.close();
+        dashboardSocket = null;
+    }
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+    initWebSocket();
+};
+
+onMounted(async () => {
+    updateTime();
+    setInterval(updateTime, 1000);
+
+    // 先拉取看板初始数据，再初始化图表与 SSE
+    try {
+        const res = await apiFetch<{ success: boolean; data: Record<string, unknown> }>('/dashboard/data');
+        if (res?.success && res.data) {
+            applyDataBoardPayload(res.data);
+        }
+    } catch {
+        // 接口失败时使用 dashboardData 默认值
+    }
+
     nextTick(() => {
+        initAllCharts();
         scheduleFactory3dInit();
     });
     window.addEventListener('resize', handleResize);
-
-    // 初始化 SSE 连接
-    initSSE();
+    initRealtime();
 });
 
 onBeforeUnmount(() => {
     window.removeEventListener('resize', handleResize);
 
-    // 关闭 SSE 连接
+    if (realtimeReconnectTimer) {
+        clearTimeout(realtimeReconnectTimer);
+        realtimeReconnectTimer = null;
+    }
+    if (wsOpenTimeout) {
+        clearTimeout(wsOpenTimeout);
+        wsOpenTimeout = null;
+    }
+    if (dashboardSocket) {
+        dashboardSocket.close();
+        dashboardSocket = null;
+    }
     if (eventSource) {
         eventSource.close();
         eventSource = null;
