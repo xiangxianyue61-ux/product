@@ -77,7 +77,8 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import { profile, updateProfile } from '../../api/modules/auth';
+import { updateProfile } from '../../api/modules/auth';
+import { getSystemProfile } from './api/index';
 
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
@@ -94,7 +95,10 @@ interface UserInfo {
     updatedAt?: string;
 }
 
+import { useStore } from 'vuex';
+
 const router = useRouter();
+const store = useStore();
 const loading = ref(true);
 const submitting = ref(false);
 const isFirstLogin = ref(false);
@@ -120,7 +124,7 @@ const validatePass2 = async (_rule: unknown, value: string) => {
 
 const fetchUserInfo = async () => {
     try {
-        const res = await profile();
+        const res = await getSystemProfile();
         console.log(res.data, '123');
         if (res.data.success) {
             userInfo.value = res.data.user;
@@ -147,6 +151,8 @@ const handleSetup = async () => {
         if (res.data.success) {
             message.success('设置成功');
             isFirstLogin.value = false;
+            // Update store
+            store.commit('updateFirstLogin', false);
             // Refresh user info
             fetchUserInfo();
         } else {

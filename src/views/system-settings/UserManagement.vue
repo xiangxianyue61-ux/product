@@ -20,7 +20,7 @@
         <a-card class="mb-4" :bordered="false">
             <a-space>
                 <a-button type="primary" @click="handleAdd">新增</a-button>
-                <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
+                <a-button @click="handleEdit(null)" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
                 <a-button @click="noop">导入</a-button>
@@ -43,7 +43,7 @@
                     <template v-if="column.key === 'action'">
                         <a-space>
                             <a @click="noop">详情</a>
-                            <a @click="noop">编辑</a>
+                            <a @click="handleEdit(record)">编辑</a>
                             <a style="color: #ff4d4f" @click="noop">删除</a>
                         </a-space>
                     </template>
@@ -70,27 +70,44 @@
             </div>
         </a-card>
 
-        <!-- 新增用户弹窗 -->
-        <a-modal v-model="addModalVisible" title="新增" @ok="handleAddSubmit" @cancel="handleAddCancel">
+        <!-- 新增/编辑用户弹窗 -->
+        <a-modal
+            v-model:visible="addModalVisible"
+            :title="currentId ? '编辑用户' : '新增用户'"
+            @ok="handleAddSubmit"
+            @cancel="handleAddCancel"
+        >
             <a-form :model="addForm" :label-col="{ span: 5 }" :wrapper-col="{ span: 16 }">
                 <a-form-item label="用户名称" required>
-                    <a-input v-model="addForm.realName" placeholder="请输入真实姓名" />
+                    <a-input v-model:value="addForm.realName" placeholder="请输入真实姓名" />
                 </a-form-item>
                 <a-form-item label="用户名" required>
-                    <a-input v-model="addForm.username" placeholder="请输入登录账号" />
+                    <a-input v-model:value="addForm.username" placeholder="请输入登录账号" />
                 </a-form-item>
-                <a-form-item label="密码" required>
-                    <a-input-password v-model:value="addForm.password" placeholder="请输入密码" />
+                <a-form-item label="手机号" required>
+                    <a-input v-model:value="addForm.phone" placeholder="请输入手机号" />
                 </a-form-item>
-                <a-form-item label="确认密码" required>
-                    <a-input-password v-model:value="addForm.confirmPassword" placeholder="请再次输入密码" />
+                <a-form-item label="密码" :required="!currentId">
+                    <a-input-password
+                        v-model:value="addForm.password"
+                        :placeholder="currentId ? '不修改请留空' : '请输入密码'"
+                    />
                 </a-form-item>
-                <a-form-item label="角色">
+                <a-form-item label="确认密码" :required="!currentId">
+                    <a-input-password
+                        v-model:value="addForm.confirmPassword"
+                        :placeholder="currentId ? '不修改请留空' : '请再次输入密码'"
+                    />
+                </a-form-item>
+                <a-form-item label="角色" required>
                     <a-select v-model:value="addForm.roleId" placeholder="请选择角色" allow-clear>
                         <a-select-option v-for="role in roleOptions" :key="role._id" :value="role._id">
                             {{ role.displayName }}
                         </a-select-option>
                     </a-select>
+                </a-form-item>
+                <a-form-item label="状态">
+                    <a-switch v-model:checked="addForm.status" checked-children="启用" un-checked-children="禁用" />
                 </a-form-item>
             </a-form>
         </a-modal>
@@ -100,7 +117,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { getEmployeeList, addEmployeeList, getRoleList } from './api/index';
+import { getEmployeeList, addEmployeeList, getRoleList, updateEmployeeList } from './api/index';
 
 type Row = {
     _id: string;
@@ -111,6 +128,7 @@ type Row = {
     lastLogin: string;
     createdAt: string;
     role?: {
+        _id: string;
         name: string;
         displayName: string;
     };
@@ -204,6 +222,7 @@ const noop = () => message.info('演示页面：此功能暂未接入后端');
 
 // 新增逻辑
 const addModalVisible = ref(false);
+const currentId = ref<string | null>(null);
 const addForm = reactive({
     realName: '',
     username: '',
@@ -215,6 +234,7 @@ const addForm = reactive({
 });
 
 const handleAdd = () => {
+    currentId.value = null;
     addForm.realName = '';
     addForm.username = '';
     addForm.phone = '';
@@ -228,45 +248,78 @@ const handleAdd = () => {
     }
 };
 
+const handleEdit = (record: Row | null) => {
+    const target =
+        record ||
+        (selectedRowKeys.value.length === 1
+            ? tableData.value.find(item => item._id === selectedRowKeys.value[0])
+            : null);
+    if (!target) return;
+
+    currentId.value = target._id;
+    addForm.realName = target.realName;
+    addForm.username = target.username;
+    addForm.phone = target.phone;
+    addForm.password = '';
+    addForm.confirmPassword = '';
+    addForm.roleId = target.role?._id;
+    addForm.status = target.status === 'active';
+    addModalVisible.value = true;
+    if (roleOptions.value.length === 0) {
+        getRoleOptions();
+    }
+};
+
 const handleAddCancel = () => {
     addModalVisible.value = false;
 };
 
 const handleAddSubmit = async () => {
-    if (
-        !addForm.realName ||
-        !addForm.username ||
-        !addForm.phone ||
-        !addForm.password ||
-        !addForm.confirmPassword ||
-        !addForm.roleId
-    ) {
+    if (!addForm.realName || !addForm.username || !addForm.phone || !addForm.roleId) {
         message.warning('请填写所有必填项');
         return;
     }
+    // 仅在新增或修改了密码时校验密码
+    if (!currentId && !addForm.password) {
+        message.warning('请输入密码');
+        return;
+    }
+    if ((addForm.password || addForm.confirmPassword) && addForm.password !== addForm.confirmPassword) {
+        message.warning('两次输入的密码不一致');
+        return;
+    }
+
     if (!/^1[3-9]\d{9}$/.test(addForm.phone)) {
         message.warning('请输入有效的手机号');
         return;
     }
-    if (addForm.password !== addForm.confirmPassword) {
-        message.warning('两次输入的密码不一致');
-        return;
-    }
+
     try {
-        const res = await addEmployeeList({
+        const payload: any = {
             realName: addForm.realName,
             username: addForm.username,
             phone: addForm.phone,
-            password: addForm.password,
-            role: addForm.roleId, // 传递角色ID
+            role: addForm.roleId,
             status: addForm.status ? 'active' : 'inactive',
-        });
+        };
+
+        if (addForm.password) {
+            payload.password = addForm.password;
+        }
+
+        let res;
+        if (currentId.value) {
+            res = await updateEmployeeList(currentId.value, payload);
+        } else {
+            res = await addEmployeeList(payload);
+        }
+
         if (res.data.success) {
-            message.success('添加成功');
+            message.success(currentId.value ? '修改成功' : '添加成功');
             addModalVisible.value = false;
             getEmployeeListData();
         } else {
-            message.error(res.data.message || '添加失败');
+            message.error(res.data.message || (currentId.value ? '修改失败' : '添加失败'));
         }
     } catch (error) {
         // 错误已由拦截器处理

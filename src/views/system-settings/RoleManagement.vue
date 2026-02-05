@@ -20,7 +20,7 @@
         <a-card class="mb-4" :bordered="false">
             <a-space>
                 <a-button type="primary" @click="handleAdd">新增</a-button>
-                <a-button @click="noop" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
+                <a-button @click="handleEdit(null)" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
                 <a-button @click="noop">导入</a-button>
@@ -46,7 +46,7 @@
                     <template v-if="column.key === 'action'">
                         <a-space>
                             <a @click="noop">详情</a>
-                            <a @click="noop">编辑</a>
+                            <a @click="handleEdit(record)">编辑</a>
                             <a style="color: #ff4d4f" @click="noop">删除</a>
                         </a-space>
                     </template>
@@ -73,8 +73,14 @@
             </div>
         </a-card>
 
-        <!-- 新增角色弹窗 -->
-        <a-modal :open="addModalVisible" title="新增" @ok="handleAddSubmit" @cancel="handleAddCancel" width="600px">
+        <!-- 新增/编辑角色弹窗 -->
+        <a-modal
+            :open="addModalVisible"
+            :title="currentId ? '编辑角色' : '新增角色'"
+            @ok="handleAddSubmit"
+            @cancel="handleAddCancel"
+            width="600px"
+        >
             <a-form :model="addForm" :label-col="{ span: 5 }" :wrapper-col="{ span: 18 }">
                 <a-form-item label="角色编号" required help="唯一标识，如：admin, user">
                     <a-input v-model:value="addForm.name" placeholder="请输入角色编号" />
@@ -111,7 +117,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
-import { addRoleList, getRoleList, getMenuTree } from './api/index';
+import { addRoleList, getRoleList, getMenuTree, updateRoleList } from './api/index';
 
 type Row = {
     _id: string;
@@ -119,7 +125,7 @@ type Row = {
     displayName: string; // 角色显示名称
     description: string;
     status: string;
-    menus: string[];
+    menus: { _id: string; title: string }[] | string[]; // 后端 populate 后是对象数组，否则是 ID 数组
     createdAt: string;
     updatedAt: string;
 };
@@ -220,6 +226,7 @@ const noop = () => message.info('演示页面：此功能暂未接入后端');
 
 // 新增逻辑
 const addModalVisible = ref(false);
+const currentId = ref<string | null>(null);
 const addForm = reactive({
     name: '', // 角色编号/唯一标识
     displayName: '', // 角色名称
@@ -229,6 +236,7 @@ const addForm = reactive({
 });
 
 const handleAdd = () => {
+    currentId.value = null;
     addForm.name = '';
     addForm.displayName = '';
     addForm.status = 'active';
@@ -236,6 +244,37 @@ const handleAdd = () => {
     addForm.description = '';
     addModalVisible.value = true;
     // 确保菜单数据已加载
+    if (menuTreeData.value.length === 0) {
+        fetchMenuTree();
+    }
+};
+
+const handleEdit = (record: Row | null) => {
+    const target =
+        record ||
+        (selectedRowKeys.value.length === 1
+            ? tableData.value.find(item => item._id === selectedRowKeys.value[0])
+            : null);
+    if (!target) return;
+
+    currentId.value = target._id;
+    addForm.name = target.name;
+    addForm.displayName = target.displayName;
+    addForm.status = target.status;
+    addForm.description = target.description;
+
+    // 处理 menus 回显：如果是对象数组提取ID，如果是ID数组直接使用
+    if (Array.isArray(target.menus) && target.menus.length > 0) {
+        if (typeof target.menus[0] === 'object') {
+            addForm.menus = (target.menus as any[]).map(m => m._id);
+        } else {
+            addForm.menus = target.menus as string[];
+        }
+    } else {
+        addForm.menus = [];
+    }
+
+    addModalVisible.value = true;
     if (menuTreeData.value.length === 0) {
         fetchMenuTree();
     }
@@ -251,13 +290,19 @@ const handleAddSubmit = async () => {
         return;
     }
     try {
-        const res = await addRoleList(addForm);
+        let res;
+        if (currentId.value) {
+            res = await updateRoleList(currentId.value, addForm);
+        } else {
+            res = await addRoleList(addForm);
+        }
+
         if (res.data.success) {
-            message.success('添加成功');
+            message.success(currentId.value ? '修改成功' : '添加成功');
             addModalVisible.value = false;
             getRoleListData();
         } else {
-            message.error(res.data.message || '添加失败');
+            message.error(res.data.message || (currentId.value ? '修改失败' : '添加失败'));
         }
     } catch (error) {
         // 错误已由拦截器处理

@@ -198,14 +198,14 @@ const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
 
 const getMenuListData = async () => {
     const res = await getMenuList({
-        pageNum: pagination.current,
-        pageSize: pagination.pageSize,
+        page: pagination.current,
+        limit: pagination.pageSize,
         code: searchForm.code,
         name: searchForm.name,
     });
     if (res.data.success) {
-        tableData.value = res.data.data.records;
-        pagination.total = res.data.data.total;
+        tableData.value = res.data.data;
+        pagination.total = res.data.total;
     }
 };
 
