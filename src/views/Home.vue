@@ -502,7 +502,10 @@ const refreshDonutChartsOption = () => {
 
 // SSE：首页全部数据按数据库实时渲染（与 overview 同源，每 10 秒推送）
 const initSSE = () => {
-    const token = localStorage.getItem('access_token');
+    const raw = localStorage.getItem('access_token');
+    if (!raw) return;
+    // 后端 query.token 会再拼成 Bearer xxx，这里只传裸 JWT，避免变成 "Bearer Bearer xxx" 导致 401
+    const token = raw.replace(/^Bearer\s+/i, '');
     if (!token) return;
     const url = `/dashboard/sse?token=${encodeURIComponent(token)}`;
     try {
