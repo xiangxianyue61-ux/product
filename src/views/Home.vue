@@ -152,6 +152,10 @@
                             <a-col :span="6" v-for="entry in quickEntries" :key="entry.key">
                                 <div
                                     class="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="goQuickEntry(entry)"
+                                    @keydown.enter="goQuickEntry(entry)"
                                 >
                                     <div
                                         class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg mb-1"
@@ -173,7 +177,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
 import {
@@ -337,17 +342,21 @@ const progressColumns = [
 
 const progressData = ref<any[]>([]);
 
-// 快捷入口
+// 快捷入口（点击跳转对应路由）
+const router = useRouter();
 const quickEntries = ref([
-    { key: 'order', label: '生产订单', icon: ShoppingOutlined, color: '#fa8c16' },
-    { key: 'report', label: '报工管理', icon: FileAddOutlined, color: '#1890ff' },
-    { key: 'plan', label: '生产计划', icon: SettingOutlined, color: '#52c41a' },
-    { key: 'warehouse', label: '入库管理', icon: InboxOutlined, color: '#722ed1' },
-    { key: 'quality', label: '质量管理', icon: SafetyOutlined, color: '#52c41a' },
-    { key: 'team', label: '生产班组', icon: TeamOutlined, color: '#52c41a' },
-    { key: 'process', label: '工艺管理', icon: ToolOutlined, color: '#1890ff' },
-    { key: 'anomaly', label: '异常管理', icon: WarningOutlined, color: '#52c41a' },
+    { key: 'order', label: '生产订单', icon: ShoppingOutlined, color: '#fa8c16', routeName: 'SalesOrder' },
+    { key: 'report', label: '报工管理', icon: FileAddOutlined, color: '#1890ff', routeName: 'ProductionReporting' },
+    { key: 'plan', label: '生产计划', icon: SettingOutlined, color: '#52c41a', routeName: 'ProductionPlan' },
+    { key: 'warehouse', label: '入库管理', icon: InboxOutlined, color: '#722ed1', routeName: 'PurchaseInbound' },
+    { key: 'quality', label: '质量管理', icon: SafetyOutlined, color: '#52c41a', routeName: 'QualityInspectionItem' },
+    { key: 'team', label: '生产班组', icon: TeamOutlined, color: '#52c41a', routeName: 'ProductionTeam' },
+    { key: 'process', label: '工艺管理', icon: ToolOutlined, color: '#1890ff', routeName: 'MaterialManagement' },
+    { key: 'anomaly', label: '异常管理', icon: WarningOutlined, color: '#52c41a', routeName: 'AnomalyManagementPage' },
 ]);
+const goQuickEntry = (entry: { routeName?: string }) => {
+    if (entry.routeName) router.push({ name: entry.routeName });
+};
 
 const getProgressColor = (progress: number) => {
     if (progress >= 80) return '#52c41a';
@@ -376,81 +385,154 @@ const currentTodoList = computed(() => {
 const barChartRef = ref<HTMLElement>();
 const lineChartRef = ref<HTMLElement>();
 const donutChartInstances = ref<echarts.ECharts[]>([]);
+let sseEventSource: EventSource | null = null;
 
-// 从后端加载首页看板数据
+// 将后端/SSE 的看板数据应用到首页（KPI、饼图、生产进度表、工单产出/产品合格率近一年）
+type DashboardPayload = {
+    kpis: {
+        inProduction: { value: number };
+        unproduced: { value: number };
+        nonConforming: { value: number };
+        achievementRate: { value: number };
+        qualificationRate: { value: number };
+    };
+    workOrderStats: { total: number; items: Array<{ name: string; value: number }> };
+    productStats: { total: number; items: Array<{ name: string; value: number }> };
+    defectStats: { total: number; items: Array<{ name: string; value: number }> };
+    progressTable: any[];
+    workOrderOutputMonthly?: { months: string[]; values: number[] };
+    productQualificationMonthly?: { months: string[]; values: number[] };
+};
+const barChartData = ref<{ months: string[]; values: number[] }>({
+    months: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+    values: [780, 700, 790, 820, 780, 630, 770, 830, 800, 860, 760, 800],
+});
+const lineChartData = ref<{ months: string[]; values: number[] }>({
+    months: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'],
+    values: [0.92, 0.94, 0.958, 0.95, 0.96, 0.97, 0.98, 0.97, 0.96, 0.98, 0.97, 0.99],
+});
+const barChartInstance = ref<echarts.ECharts | null>(null);
+const lineChartInstance = ref<echarts.ECharts | null>(null);
+
+const applyDashboardData = (data: DashboardPayload) => {
+    const { kpis, workOrderStats, productStats, defectStats, progressTable } = data;
+    if (data.workOrderOutputMonthly?.months?.length) {
+        barChartData.value = data.workOrderOutputMonthly;
+    }
+    if (data.productQualificationMonthly?.months?.length) {
+        lineChartData.value = data.productQualificationMonthly;
+    }
+    kpiList.value = kpiList.value.map(item => {
+        if (item.key === 'in-production') return { ...item, value: String(kpis.inProduction.value) };
+        if (item.key === 'unproduced') return { ...item, value: String(kpis.unproduced.value) };
+        if (item.key === 'non-conforming') return { ...item, value: String(kpis.nonConforming.value) };
+        if (item.key === 'achievement-rate') {
+            return { ...item, value: `${kpis.achievementRate.value.toFixed(1)}%` };
+        }
+        if (item.key === 'qualification-rate') {
+            return { ...item, value: `${kpis.qualificationRate.value.toFixed(1)}%` };
+        }
+        return item;
+    });
+    donutCharts.value = donutCharts.value.map(chart => {
+        if (chart.key === 'work-order') {
+            return { ...chart, total: workOrderStats.total, data: workOrderStats.items };
+        }
+        if (chart.key === 'product') {
+            return { ...chart, total: productStats.total, data: productStats.items };
+        }
+        if (chart.key === 'defect') {
+            return { ...chart, total: defectStats.total, data: defectStats.items };
+        }
+        return chart;
+    });
+    progressData.value = progressTable;
+};
+
+// 刷新已初始化的饼图实例（SSE 更新数据后调用）
+const refreshDonutChartsOption = () => {
+    nextTick(() => {
+        donutCharts.value.forEach((chart, index) => {
+            const instance = donutChartInstances.value[index];
+            if (!instance) return;
+            const option = {
+                graphic: [
+                    {
+                        type: 'text',
+                        left: 'center',
+                        top: '46.5%',
+                        style: {
+                            text: chart.total.toString(),
+                            textAlign: 'center',
+                            fill: '#333',
+                            fontSize: 28,
+                            fontWeight: 'bold',
+                        },
+                        z: 100,
+                    },
+                    {
+                        type: 'text',
+                        left: 'center',
+                        top: '61.5%',
+                        style: {
+                            text: chart.totalLabel,
+                            textAlign: 'center',
+                            fill: '#666',
+                            fontSize: 14,
+                        },
+                        z: 100,
+                    },
+                ],
+                series: [
+                    {
+                        type: 'pie',
+                        radius: ['40%', '70%'],
+                        center: ['50%', '50%'],
+                        data: chart.data.map((item, i) => ({
+                            ...item,
+                            itemStyle: { color: chart.colors[i] },
+                        })),
+                    },
+                ],
+            };
+            instance.setOption(option, { replaceMerge: ['graphic', 'series'] });
+        });
+    });
+};
+
+// SSE：首页全部数据按数据库实时渲染（与 overview 同源，每 10 秒推送）
+const initSSE = () => {
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    const url = `/dashboard/sse?token=${encodeURIComponent(token)}`;
+    try {
+        sseEventSource = new EventSource(url);
+        sseEventSource.onmessage = (event: MessageEvent) => {
+            try {
+                const data = JSON.parse(event.data as string) as DashboardPayload;
+                if (data.kpis && data.workOrderStats) {
+                    applyDashboardData(data);
+                    refreshDonutChartsOption();
+                    refreshBarChartOption();
+                    refreshLineChartOption();
+                }
+            } catch {
+                // 解析失败忽略
+            }
+        };
+        sseEventSource.onerror = () => {};
+    } catch {
+        // EventSource 不可用时仅用初次请求数据
+    }
+};
+
+// 从后端加载首页看板数据（与 SSE 同源，初次进入页面拉取）
 const loadDashboardData = async () => {
     try {
-        const res = await apiFetch<{
-            success: boolean;
-            data: {
-                kpis: {
-                    inProduction: { value: number };
-                    unproduced: { value: number };
-                    nonConforming: { value: number };
-                    achievementRate: { value: number };
-                    qualificationRate: { value: number };
-                };
-                workOrderStats: { total: number; items: Array<{ name: string; value: number }> };
-                productStats: { total: number; items: Array<{ name: string; value: number }> };
-                defectStats: { total: number; items: Array<{ name: string; value: number }> };
-                progressTable: any[];
-            };
-        }>('/dashboard/overview');
-
+        const res = await apiFetch<{ success: boolean; data: DashboardPayload }>('/dashboard/overview');
         if (!res.success) return;
-
-        const { kpis, workOrderStats, productStats, defectStats, progressTable } = res.data;
-
-        // 更新 KPI
-        kpiList.value = kpiList.value.map(item => {
-            if (item.key === 'in-production') {
-                return { ...item, value: String(kpis.inProduction.value) };
-            }
-            if (item.key === 'unproduced') {
-                return { ...item, value: String(kpis.unproduced.value) };
-            }
-            if (item.key === 'non-conforming') {
-                return { ...item, value: String(kpis.nonConforming.value) };
-            }
-            if (item.key === 'achievement-rate') {
-                return { ...item, value: `${kpis.achievementRate.value.toFixed(1)}%` };
-            }
-            if (item.key === 'qualification-rate') {
-                return { ...item, value: `${kpis.qualificationRate.value.toFixed(1)}%` };
-            }
-            return item;
-        });
-
-        // 更新饼图数据
-        donutCharts.value = donutCharts.value.map(chart => {
-            if (chart.key === 'work-order') {
-                return {
-                    ...chart,
-                    total: workOrderStats.total,
-                    data: workOrderStats.items,
-                };
-            }
-            if (chart.key === 'product') {
-                return {
-                    ...chart,
-                    total: productStats.total,
-                    data: productStats.items,
-                };
-            }
-            if (chart.key === 'defect') {
-                return {
-                    ...chart,
-                    total: defectStats.total,
-                    data: defectStats.items,
-                };
-            }
-            return chart;
-        });
-
-        // 更新生产进度表格
-        progressData.value = progressTable;
+        applyDashboardData(res.data);
     } catch (e) {
-        // 失败时保留静态占位数据（当前已是 0）
         // eslint-disable-next-line no-console
         console.error('加载首页看板数据失败', e);
     }
@@ -459,6 +541,7 @@ const loadDashboardData = async () => {
 // 初始化饼图
 const initDonutCharts = () => {
     nextTick(() => {
+        donutChartInstances.value = [];
         donutCharts.value.forEach(chart => {
             const chartElement = document.querySelector(`[data-chart="${chart.key}"]`) as HTMLElement;
             if (chartElement) {
@@ -538,162 +621,127 @@ const initDonutCharts = () => {
     });
 };
 
-// 初始化柱状图
+// 工单产出柱状图：用 barChartData（来自 SSE/overview）渲染，无数据时用默认
+const setBarChartOption = () => {
+    const instance = barChartInstance.value;
+    if (!instance) return;
+    const { months, values } = barChartData.value;
+    const maxVal = Math.max(...values, 1);
+    const percentages = values.map(v => Math.round((v / maxVal) * 100));
+    const option = {
+        tooltip: {
+            trigger: 'axis',
+            formatter: (params: Array<{ name: string; value: number }>) => {
+                const param = params[0];
+                if (!param) return '';
+                const index = months.indexOf(param.name);
+                return `${param.name}<br/>${param.value} / ${percentages[index] ?? 0}%`;
+            },
+        },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: months,
+            axisLine: { lineStyle: { color: '#e8e8e8' } },
+        },
+        yAxis: {
+            type: 'value',
+            max: Math.ceil(maxVal * 1.1) || 1000,
+            axisLine: { lineStyle: { color: '#e8e8e8' } },
+            splitLine: { lineStyle: { color: '#f0f0f0' } },
+        },
+        series: [
+            {
+                type: 'bar',
+                barWidth: '60%',
+                data: values.map((v, index) => ({
+                    value: v,
+                    label: {
+                        show: true,
+                        position: 'top',
+                        formatter: `${percentages[index]}%`,
+                        color: '#333',
+                    },
+                })),
+                itemStyle: { color: '#52c41a', borderRadius: [4, 4, 0, 0] },
+            },
+        ],
+    };
+    instance.setOption(option);
+};
+const refreshBarChartOption = () => nextTick(setBarChartOption);
+
 const initBarChart = () => {
     nextTick(() => {
         if (barChartRef.value) {
-            const chartInstance = echarts.init(barChartRef.value);
-            const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-            const percentages = [78, 70, 79, 82, 78, 63, 77, 83, 80, 86, 76, 80];
-            const values = percentages.map(p => p * 10);
-            const option = {
-                tooltip: {
-                    trigger: 'axis',
-                    formatter: (params: Array<{ name: string; value: number }>) => {
-                        const param = params[0];
-                        if (!param) {
-                            return '';
-                        }
-                        const index = months.indexOf(param.name);
-                        return `${param.name}<br/>${percentages[index]}%`;
-                    },
-                },
-                grid: {
-                    left: '3%',
-                    right: '4%',
-                    bottom: '3%',
-                    containLabel: true,
-                },
-                xAxis: {
-                    type: 'category',
-                    data: months,
-                    axisLine: {
-                        lineStyle: {
-                            color: '#e8e8e8',
-                        },
-                    },
-                },
-                yAxis: {
-                    type: 'value',
-                    max: 1000,
-                    axisLine: {
-                        lineStyle: {
-                            color: '#e8e8e8',
-                        },
-                    },
-                    splitLine: {
-                        lineStyle: {
-                            color: '#f0f0f0',
-                        },
-                    },
-                },
-                series: [
-                    {
-                        type: 'bar',
-                        barWidth: '60%',
-                        data: values.map((v, index) => ({
-                            value: v,
-                            label: {
-                                show: true,
-                                position: 'top',
-                                formatter: `${percentages[index]}%`,
-                                color: '#333',
-                            },
-                        })),
-                        itemStyle: {
-                            color: '#52c41a',
-                            borderRadius: [4, 4, 0, 0],
-                        },
-                    },
-                ],
-            };
-            chartInstance.setOption(option);
+            barChartInstance.value = echarts.init(barChartRef.value);
+            setBarChartOption();
         }
     });
 };
 
-// 初始化折线图
+// 产品合格率折线图：用 lineChartData（来自 SSE/overview）渲染，无数据时用默认
+const setLineChartOption = () => {
+    const instance = lineChartInstance.value;
+    if (!instance) return;
+    const { months, values } = lineChartData.value;
+    const option = {
+        tooltip: {
+            trigger: 'axis',
+            formatter: (params: Array<{ name: string; value: number }>) => {
+                const param = params[0];
+                if (!param) return '';
+                return `${param.name}<br/>${((param.value as number) * 100).toFixed(1)}%`;
+            },
+        },
+        grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+        xAxis: {
+            type: 'category',
+            data: months,
+            axisLine: { lineStyle: { color: '#e8e8e8' } },
+        },
+        yAxis: {
+            type: 'value',
+            min: 0,
+            max: 1,
+            axisLabel: { formatter: '{value}' },
+            axisLine: { lineStyle: { color: '#e8e8e8' } },
+            splitLine: { lineStyle: { color: '#f0f0f0' } },
+        },
+        series: [
+            {
+                type: 'line',
+                data: values,
+                smooth: true,
+                symbol: 'circle',
+                symbolSize: 6,
+                itemStyle: { color: '#faad14' },
+                lineStyle: { color: '#faad14', width: 2 },
+                areaStyle: {
+                    color: {
+                        type: 'linear',
+                        x: 0,
+                        y: 0,
+                        x2: 0,
+                        y2: 1,
+                        colorStops: [
+                            { offset: 0, color: 'rgba(250, 173, 20, 0.3)' },
+                            { offset: 1, color: 'rgba(250, 173, 20, 0.1)' },
+                        ],
+                    },
+                },
+            },
+        ],
+    };
+    instance.setOption(option);
+};
+const refreshLineChartOption = () => nextTick(setLineChartOption);
+
 const initLineChart = () => {
     nextTick(() => {
         if (lineChartRef.value) {
-            const chartInstance = echarts.init(lineChartRef.value);
-            const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-            const values = [0.92, 0.94, 0.958, 0.95, 0.96, 0.97, 0.98, 0.97, 0.96, 0.98, 0.97, 0.99];
-            const option = {
-                tooltip: {
-                    trigger: 'axis',
-                    formatter: (params: Array<{ name: string; value: number }>) => {
-                        const param = params[0];
-                        if (!param) {
-                            return '';
-                        }
-                        return `${param.name}<br/>${(param.value * 100).toFixed(1)}%`;
-                    },
-                },
-                grid: {
-                    left: '3%',
-                    right: '4%',
-                    bottom: '3%',
-                    containLabel: true,
-                },
-                xAxis: {
-                    type: 'category',
-                    data: months,
-                    axisLine: {
-                        lineStyle: {
-                            color: '#e8e8e8',
-                        },
-                    },
-                },
-                yAxis: {
-                    type: 'value',
-                    min: 0.0,
-                    max: 1.0,
-                    axisLabel: {
-                        formatter: '{value}',
-                    },
-                    axisLine: {
-                        lineStyle: {
-                            color: '#e8e8e8',
-                        },
-                    },
-                    splitLine: {
-                        lineStyle: {
-                            color: '#f0f0f0',
-                        },
-                    },
-                },
-                series: [
-                    {
-                        type: 'line',
-                        data: values,
-                        smooth: true,
-                        symbol: 'circle',
-                        symbolSize: 6,
-                        itemStyle: {
-                            color: '#faad14',
-                        },
-                        lineStyle: {
-                            color: '#faad14',
-                            width: 2,
-                        },
-                        areaStyle: {
-                            color: {
-                                type: 'linear',
-                                x: 0,
-                                y: 0,
-                                x2: 0,
-                                y2: 1,
-                                colorStops: [
-                                    { offset: 0, color: 'rgba(250, 173, 20, 0.3)' },
-                                    { offset: 1, color: 'rgba(250, 173, 20, 0.1)' },
-                                ],
-                            },
-                        },
-                    },
-                ],
-            };
-            chartInstance.setOption(option);
+            lineChartInstance.value = echarts.init(lineChartRef.value);
+            setLineChartOption();
         }
     });
 };
@@ -704,5 +752,13 @@ onMounted(() => {
         initBarChart();
         initLineChart();
     });
+    initSSE();
+});
+
+onBeforeUnmount(() => {
+    if (sseEventSource) {
+        sseEventSource.close();
+        sseEventSource = null;
+    }
 });
 </script>

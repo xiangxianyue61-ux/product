@@ -30,8 +30,17 @@
                 <a-button @click="handleEdit" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
                 <a-button danger @click="handleDelete" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="handlePrint">打印</a-button>
-                <a-button @click="handleImport">导入</a-button>
-                <a-button @click="handleExport">导出</a-button>
+                <ImportExportBar
+                    :import-headers="IMPORT_HEADERS"
+                    :import-header-keys="[...IMPORT_HEADER_KEYS]"
+                    template-filename="物料单位导入模板"
+                    template-example-row="DWBH000001,吨,启用,无,2025.04.24 14:00:00"
+                    export-filename-prefix="物料单位"
+                    :export-headers="IMPORT_HEADERS"
+                    :get-export-data="getExportData"
+                    :get-export-row-values="(row: unknown) => getExportRowValues(row as MaterialUnit)"
+                    :on-import-submit="submitMaterialUnitImport"
+                />
             </a-space>
         </a-card>
 
@@ -133,6 +142,7 @@
 import { ref, reactive, onMounted } from 'vue';
 import { message } from 'ant-design-vue';
 import { PlusOutlined } from '@ant-design/icons-vue';
+import ImportExportBar from '../../components/ImportExportBar.vue';
 
 interface MaterialUnit {
     id: number;
@@ -231,8 +241,8 @@ const formRules = {
     unitName: [{ required: true, message: '请输入单位名称', trigger: 'blur' }],
 };
 
-// 模拟数据
-const mockData: MaterialUnit[] = [
+// 初始演示数据（内存中维护，可通过导入扩展）
+const allData = ref<MaterialUnit[]>([
     {
         id: 1,
         unitCode: 'DWBH000001',
@@ -353,18 +363,15 @@ const mockData: MaterialUnit[] = [
         remark: '无',
         createTime: '2025.04.24 14:00:00',
     },
-];
+]);
 
 // 加载数据
 const loadData = () => {
     loading.value = true;
-    // 模拟API请求
-    setTimeout(() => {
-        const start = (pagination.current - 1) * pagination.pageSize;
-        const end = start + pagination.pageSize;
-        tableData.value = mockData.slice(start, end);
-        loading.value = false;
-    }, 300);
+    const start = (pagination.current - 1) * pagination.pageSize;
+    const end = start + pagination.pageSize;
+    tableData.value = allData.value.slice(start, end);
+    loading.value = false;
 };
 
 // 搜索
@@ -420,13 +427,18 @@ const handleDelete = () => {
         message.warning('请选择要删除的记录');
         return;
     }
+    const ids = new Set(selectedRowKeys.value);
+    allData.value = allData.value.filter(item => !ids.has(item.id));
     message.success(`已删除 ${selectedRowKeys.value.length} 条记录`);
     selectedRowKeys.value = [];
+    pagination.total = allData.value.length;
     loadData();
 };
 
 // 删除行
-const handleDeleteRow = (_record: MaterialUnit) => {
+const handleDeleteRow = (record: MaterialUnit) => {
+    allData.value = allData.value.filter(item => item.id !== record.id);
+    pagination.total = allData.value.length;
     message.success('删除成功');
     loadData();
 };
@@ -441,14 +453,32 @@ const handlePrint = () => {
     message.info('打印功能');
 };
 
-// 导入
-const handleImport = () => {
-    message.info('导入功能');
-};
+const IMPORT_HEADERS = ['单位编号', '单位名称', '状态', '备注', '创建时间'];
+const IMPORT_HEADER_KEYS = ['unitCode', 'unitName', 'status', 'remark', 'createTime'] as const;
 
-// 导出
-const handleExport = () => {
-    message.success('导出成功');
+const getExportData = () => allData.value;
+const getExportRowValues = (r: MaterialUnit): (string | number)[] => [
+    r.unitCode,
+    r.unitName,
+    r.status === 'disabled' ? '禁用' : '启用',
+    r.remark ?? '',
+    r.createTime ?? '',
+];
+
+const submitMaterialUnitImport = async (rows: Record<string, string>[]) => {
+    let maxId = allData.value.length ? Math.max(...allData.value.map(item => item.id), 0) : 0;
+    const toAppend: MaterialUnit[] = rows.map(row => ({
+        id: ++maxId,
+        unitCode: row.unitCode || '',
+        unitName: row.unitName || '',
+        status: row.status === 'disabled' || row.status === '禁用' ? 'disabled' : 'enabled',
+        remark: row.remark || '',
+        createTime: row.createTime || '2025.04.24 14:00:00',
+    }));
+    allData.value = allData.value.concat(toAppend);
+    pagination.total = allData.value.length;
+    loadData();
+    message.success(`成功导入 ${toAppend.length} 条`);
 };
 
 // 选择变化

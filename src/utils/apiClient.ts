@@ -16,13 +16,35 @@ function getBearerToken() {
     return `Bearer ${raw}`;
 }
 
+/** 清除登录态并跳转登录页（401 时调用，base 为 /product/） */
+function clearAuthAndRedirectToLogin() {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('access_token_expires_at');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('access_token_expires_at');
+    const base = import.meta.env.BASE_URL || '/product/';
+    const loginPath = base.replace(/\/$/, '') + '/login';
+    window.location.href = loginPath;
+}
+
 export async function apiFetch<T>(input: string, init?: RequestInit): Promise<T> {
     const headers = new Headers(init?.headers || {});
-    headers.set('Content-Type', 'application/json');
+    const method = (init?.method || 'GET').toUpperCase();
+    // 仅在需要时设置 Content-Type，避免触发不必要的预检请求（CORS preflight）
+    if (method !== 'GET' && method !== 'HEAD') {
+        headers.set('Content-Type', 'application/json');
+    }
     const token = getBearerToken();
     if (token) headers.set('Authorization', token);
 
-    const res = await fetch(input, { ...init, headers });
+    // 避免浏览器/代理缓存导致“操作后不立即更新”
+    const res = await fetch(input, { cache: 'no-store', ...init, headers });
+
+    if (res.status === 401) {
+        clearAuthAndRedirectToLogin();
+        throw new Error('未登录或登录已过期，请重新登录');
+    }
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return (await res.json()) as T;
 }
