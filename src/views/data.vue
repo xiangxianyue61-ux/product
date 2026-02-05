@@ -1117,7 +1117,9 @@ const initWebSocket = () => {
 
 // 初始化 SSE（双轨回退）
 const initSSE = () => {
-    const token = localStorage.getItem('access_token');
+    const raw = localStorage.getItem('access_token');
+    // 后端 query.token 会再拼成 Bearer xxx，这里只传裸 JWT，避免 401
+    const token = raw ? raw.replace(/^Bearer\s+/i, '') : '';
     const sseUrl = token ? `/dashboard/data-sse?token=${encodeURIComponent(token)}` : '/dashboard/data-sse';
     try {
         eventSource = new EventSource(sseUrl);
