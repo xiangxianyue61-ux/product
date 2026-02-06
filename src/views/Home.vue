@@ -399,7 +399,16 @@ type DashboardPayload = {
     workOrderStats: { total: number; items: Array<{ name: string; value: number }> };
     productStats: { total: number; items: Array<{ name: string; value: number }> };
     defectStats: { total: number; items: Array<{ name: string; value: number }> };
-    progressTable: any[];
+    progressTable: Array<{
+        key: string;
+        code: string;
+        name: string;
+        progress: number;
+        product: string;
+        quantity: number;
+        priority: string;
+        date: string;
+    }>;
     workOrderOutputMonthly?: { months: string[]; values: number[] };
     productQualificationMonthly?: { months: string[]; values: number[] };
 };

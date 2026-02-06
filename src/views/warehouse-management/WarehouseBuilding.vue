@@ -37,7 +37,7 @@
                 row-key="id"
                 :scroll="{ x: 1200 }"
             >
-                <template #bodyCell="{ column, record }">
+                <template #bodyCell="{ column }">
                     <template v-if="column.key === 'action'">
                         <a-space>
                             <a @click="noop">详情</a>

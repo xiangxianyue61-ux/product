@@ -14,11 +14,8 @@
                     :overflowedIndicator="null"
                     @click="handleTopMenuClick"
                 >
-                    <!-- <a-menu-item v-for="item in topMenuItems" :key="item.key" :title="item.title">
+                    <a-menu-item v-for="item in topMenuItems" :key="item.key" :title="item.title">
                         {{ item.title }}
-                    </a-menu-item> -->
-                    <a-menu-item v-for="item in routerList" :key="item.meta.module" :title="item.meta.title">
-                        {{ item.meta.title }}
                     </a-menu-item>
                 </a-menu>
             </div>
@@ -56,12 +53,12 @@
                     @openChange="handleOpenChange"
                 >
                     <template v-for="group in sideMenuGroups">
-                        <a-sub-menu v-if="group.children" :key="group.key" :title="group.title">
+                        <a-sub-menu v-if="group.children" :key="`${group.key}-sub`" :title="group.title">
                             <a-menu-item v-for="child in group.children" :key="child.key">
                                 {{ child.title }}
                             </a-menu-item>
                         </a-sub-menu>
-                        <a-menu-item v-else :key="group.key">
+                        <a-menu-item v-else :key="`${group.key}-item`">
                             {{ group.title }}
                         </a-menu-item>
                     </template>
@@ -93,7 +90,6 @@
 import { ref, computed, h, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import { onMounted } from 'vue';
 import { BellOutlined, MessageOutlined, FullscreenOutlined, DesktopOutlined } from '@ant-design/icons-vue';
 
 import { addMenuList } from '../views/system-settings/api/index';
@@ -101,7 +97,7 @@ import { message } from 'ant-design-vue';
 
 const route = useRoute();
 const router = useRouter();
-const store = useStore();
+const store = useStore<{ role: string; menus?: string[] }>();
 
 const collapsed = ref(false);
 
@@ -110,13 +106,21 @@ const handleInitAllMenus = async () => {
     if (!confirm('确定要初始化所有菜单数据吗？这将向数据库添加大量数据。')) return;
 
     // 扁平化 staticMenus
-    const allMenus: any[] = [];
+    interface MenuItem {
+        title: string;
+        name: string;
+        path: string;
+        component: string;
+        icon: string;
+        type: 'menu' | 'button';
+        isRoute: boolean;
+        sort: number;
+        [key: string]: unknown;
+    }
+    const allMenus: MenuItem[] = [];
 
     // 1. 处理静态定义菜单
-    for (const [module, groups] of Object.entries(staticMenus)) {
-        // 查找模块路由信息
-        const moduleRoute = routerList.value?.find(r => r.meta?.module === module);
-
+    for (const [, groups] of Object.entries(staticMenus)) {
         for (const group of groups) {
             // 添加一级/二级菜单（分组）
             // 这里简化处理：我们只关心叶子节点对应的路由，以及它们的层级结构
@@ -167,7 +171,6 @@ const handleInitAllMenus = async () => {
     // 2. 补充其他未在 staticMenus 中的路由（如 SystemSettings 下的）
     // 简单起见，我们遍历 router.getRoutes()
     const routes = router.getRoutes();
-    let count = 0;
 
     for (const r of routes) {
         // 只处理有 title 的路由，且排除一些基础路由
@@ -208,16 +211,27 @@ const handleInitAllMenus = async () => {
 
 const routerList = computed(() => {
     const rootRoute = router.options.routes.find(r => r.path === '/');
-    if (rootRoute && rootRoute.children) {
-        return rootRoute.children.filter(item => {
-            if (item.meta?.is_menu) {
-                const roles = item.meta.role as string[] | undefined;
-                if (!roles || roles.length === 0) return true;
-                return roles.includes(store.state.role);
-            }
-            return false;
-        });
-    }
+    const children = rootRoute && 'children' in rootRoute ? rootRoute.children : undefined;
+    return (children ?? []).filter(item => {
+        if (item.meta?.is_menu) {
+            const roles = item.meta.role as string[] | undefined;
+            if (!roles || roles.length === 0) return true;
+            return roles.includes(store.state.role);
+        }
+        return false;
+    });
+});
+
+type TopMenuItem = { key: string; title: string };
+
+// 顶部菜单（只取 routerList 里有 module 的项；用于模板渲染，避免 meta 为空导致 TS 报错）
+const topMenuItems = computed<TopMenuItem[]>(() => {
+    return routerList.value
+        .filter(r => typeof r.meta?.module === 'string')
+        .map(r => ({
+            key: String(r.meta?.module),
+            title: String(r.meta?.title ?? r.name ?? r.meta?.module),
+        }));
 });
 
 type SideMenuItem = {
@@ -449,11 +463,9 @@ const sideMenuGroups = computed(() => {
                     const filteredChildren = filterMenu(item.children);
                     if (filteredChildren.length > 0) {
                         // 如果只有一个子菜单，且该子菜单是叶子节点（没有子菜单），则直接展示该子菜单，不展示父级分组
-                        if (
-                            filteredChildren.length === 1 &&
-                            (!filteredChildren[0].children || filteredChildren[0].children.length === 0)
-                        ) {
-                            return filteredChildren[0];
+                        if (filteredChildren.length === 1) {
+                            const only = filteredChildren[0];
+                            if (only && (!only.children || only.children.length === 0)) return only;
                         }
                         return { ...item, children: filteredChildren };
                     }
@@ -515,7 +527,13 @@ const sideMenuGroups = computed(() => {
     }
 
     // 将路由 children 转换为 SideMenuItem 格式
-    const mapRoutesToMenu = (routes: any[]): SideMenuItem[] => {
+    interface RouteItem {
+        name?: string | symbol;
+        path: string;
+        meta?: { title?: string; role?: string[] };
+        children?: RouteItem[];
+    }
+    const mapRoutesToMenu = (routes: RouteItem[]): SideMenuItem[] => {
         return routes
             .filter(route => {
                 const roles = route.meta?.role as string[] | undefined;
@@ -525,13 +543,14 @@ const sideMenuGroups = computed(() => {
             .map(route => {
                 const hasChildren = route.children && route.children.length > 0;
                 // 对子路由进行递归处理和过滤
-                const processedChildren = hasChildren ? mapRoutesToMenu(route.children) : undefined;
+                const processedChildren = hasChildren ? mapRoutesToMenu(route.children ?? []) : undefined;
                 // 如果有子路由但经过过滤后没有有效的子菜单，则视为无子菜单（或根据需求决定是否显示父级）
                 const finalChildren = processedChildren && processedChildren.length > 0 ? processedChildren : undefined;
+                const name = String(route.name ?? route.path);
 
                 return {
-                    key: route.name as string, // 使用 name 作为 key
-                    title: (route.meta?.title as string) || (route.name as string),
+                    key: name, // 使用 name 作为 key（缺省则用 path）
+                    title: (route.meta?.title as string) || name,
                     route: route.path, // 这里路径可能需要根据实际情况处理，但在 name 跳转模式下不关键
                     children: finalChildren,
                 };
@@ -562,13 +581,22 @@ watch(
             // 暂时保持之前的 ensureOpenKeys 逻辑或者根据 currentTopMenu 遍历查找
 
             // 重新实现的自动展开逻辑
-            const findParentKeys = (routes: any[], targetName: string, parents: string[] = []): string[] | null => {
+            interface RouteItem {
+                name?: string | symbol;
+                children?: RouteItem[];
+            }
+            const findParentKeys = (
+                routes: RouteItem[],
+                targetName: string,
+                parents: string[] = []
+            ): string[] | null => {
                 for (const r of routes) {
                     if (r.name === targetName) {
                         return parents;
                     }
                     if (r.children && r.children.length > 0) {
-                        const result = findParentKeys(r.children, targetName, [...parents, r.name]);
+                        const nextParents = r.name ? [...parents, String(r.name)] : parents;
+                        const result = findParentKeys(r.children, targetName, nextParents);
                         if (result) return result;
                     }
                 }
@@ -616,7 +644,13 @@ const handleTopMenuClick = (e: { key: string }) => {
     if (item) {
         if (item.children && item.children.length > 0) {
             // Find first leaf child
-            const findFirstLeaf = (routes: any[]): any => {
+            interface RouteItem {
+                name?: string | symbol;
+                meta?: { role?: string[] };
+                children?: RouteItem[];
+                path?: string;
+            }
+            const findFirstLeaf = (routes: RouteItem[]): RouteItem | null => {
                 for (const route of routes) {
                     // 权限检查
                     const roles = route.meta?.role as string[] | undefined;
@@ -675,10 +709,6 @@ const handleOpenChange = (keys: string[]) => {
 const handleLogout = () => {
     localStorage.removeItem('access_token');
     router.push('/login');
-};
-
-const ensureOpenKeys = (keys: string[]) => {
-    openKeys.value = Array.from(new Set([...openKeys.value, ...keys]));
 };
 
 // watch(

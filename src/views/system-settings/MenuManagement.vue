@@ -288,20 +288,31 @@ const menuTreeData = ref<any[]>([]);
 const iconList = Object.keys(Icons).filter(key => key.endsWith('Outlined'));
 
 // Route Options for Select
+interface RouteOption {
+    label: string;
+    value: string;
+    component: string;
+    name: string | symbol | undefined;
+    meta: Record<string, unknown> | undefined;
+}
+
 const routeOptions = computed(() => {
     const routes = router.getRoutes();
     return routes.map(r => ({
         label: `${r.meta?.title || r.name} (${r.path})`,
         value: r.path,
-        component: r.components?.default ? (r.components.default as any).__file : '',
+        component:
+            r.components?.default && typeof r.components.default === 'object' && '__file' in r.components.default
+                ? String((r.components.default as { __file?: string }).__file || '')
+                : '',
         name: r.name,
         meta: r.meta,
-    }));
+    })) as RouteOption[];
 });
 
 const customPathInput = ref('');
 
-const filterRouteOption = (input: string, option: any) => {
+const filterRouteOption = (input: string, option: RouteOption) => {
     return option.label.toLowerCase().indexOf(input.toLowerCase()) >= 0;
 };
 
@@ -315,10 +326,10 @@ const addCustomPath = () => {
     }
 };
 
-const handlePathChange = (value: string, option: any) => {
+const handlePathChange = (value: string, option: RouteOption) => {
     if (option) {
         // Auto-fill other fields based on route selection
-        if (!addForm.title && option.meta?.title) addForm.title = option.meta.title;
+        if (!addForm.title && option.meta?.title) addForm.title = String(option.meta.title);
         if (!addForm.name && option.name) addForm.name = String(option.name);
         // component path is tricky to get from build, but we can try
         // In dev, __file might exist. In prod, it won't.
@@ -343,12 +354,18 @@ const getMenuListData = async () => {
 
             // Client-side filtering if search is active
             if (searchForm.name || searchForm.code) {
-                const filterTree = (items: any[]): any[] => {
+                interface MenuItem {
+                    title?: string;
+                    name?: string;
+                    children?: MenuItem[];
+                    [key: string]: unknown;
+                }
+                const filterTree = (items: MenuItem[]): MenuItem[] => {
                     return items
                         .map(item => {
                             const match =
-                                (!searchForm.name || item.title.includes(searchForm.name)) &&
-                                (!searchForm.code || item.name.includes(searchForm.code)); // assuming code maps to name
+                                (!searchForm.name || item.title?.includes(searchForm.name)) &&
+                                (!searchForm.code || item.name?.includes(searchForm.code)); // assuming code maps to name
                             const children = item.children ? filterTree(item.children) : [];
 
                             if (match || children.length > 0) {
@@ -356,9 +373,9 @@ const getMenuListData = async () => {
                             }
                             return null;
                         })
-                        .filter(Boolean);
+                        .filter((item): item is MenuItem => item !== null);
                 };
-                data = filterTree(data);
+                data = filterTree(data as MenuItem[]);
             }
 
             tableData.value = data;
@@ -376,12 +393,24 @@ const fetchMenuTree = async () => {
         const res = await getMenuTree();
         if (res.data.success) {
             // Transform for TreeSelect
-            const transform = (items: any[], disableChildren = false) => {
+            interface MenuTreeItem {
+                _id?: string;
+                title?: string;
+                children?: MenuTreeItem[];
+                [key: string]: unknown;
+            }
+            interface TreeSelectOption {
+                label: string;
+                value: string;
+                disabled: boolean;
+                children?: TreeSelectOption[];
+            }
+            const transform = (items: MenuTreeItem[], disableChildren = false): TreeSelectOption[] => {
                 return items.map(item => {
                     const isDisabled = disableChildren || (currentId.value && item._id === currentId.value);
                     return {
-                        label: item.title,
-                        value: item._id,
+                        label: item.title || '',
+                        value: item._id || '',
                         disabled: !!isDisabled,
                         children: item.children ? transform(item.children, isDisabled) : undefined,
                     };

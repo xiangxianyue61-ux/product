@@ -88,7 +88,13 @@ interface UserInfo {
     username: string;
     realName?: string;
     phone?: string;
-    role?: any;
+    role?: {
+        _id?: string;
+        name?: string;
+        displayName?: string;
+        description?: string;
+        [key: string]: unknown;
+    };
     status: string;
     isFirstLogin?: boolean;
     createdAt?: string;

@@ -266,7 +266,9 @@ const handleEdit = (record: Row | null) => {
     // 处理 menus 回显：如果是对象数组提取ID，如果是ID数组直接使用
     if (Array.isArray(target.menus) && target.menus.length > 0) {
         if (typeof target.menus[0] === 'object') {
-            addForm.menus = (target.menus as any[]).map(m => m._id);
+            addForm.menus = ((target.menus as Array<{ _id?: string }> | undefined) || [])
+                .map(m => m._id)
+                .filter((id): id is string => typeof id === 'string');
         } else {
             addForm.menus = target.menus as string[];
         }

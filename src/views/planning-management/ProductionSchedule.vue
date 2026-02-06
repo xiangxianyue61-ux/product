@@ -183,7 +183,7 @@ const scheduleForm = reactive({
     workshop: undefined as string | undefined,
     line: undefined as string | undefined,
     route: undefined as string | undefined,
-    startDate: undefined as any,
+    startDate: undefined as string | undefined,
 });
 
 type MaterialRow = {

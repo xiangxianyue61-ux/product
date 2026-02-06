@@ -43,9 +43,11 @@ const handleLogin = async () => {
             const isFirstLogin = !!res.data.user.isFirstLogin;
 
             // 提取菜单权限 (假设 menus 是 populated 的对象数组，我们需要 name 列表)
-            let menus = [];
+            let menus: string[] = [];
             if (roleInfo && roleInfo.menus) {
-                menus = roleInfo.menus.map((m: any) => m.name); // 使用路由 name
+                menus = (roleInfo.menus as Array<{ name?: string }>)
+                    .map(m => m.name)
+                    .filter((name): name is string => typeof name === 'string'); // 使用路由 name
             }
 
             store.commit('login', {

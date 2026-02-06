@@ -1,6 +1,50 @@
 import http from '../../../api/http/index';
 
-export function getEmployeeList(params: any) {
+// 查询参数类型
+interface ListQueryParams {
+    page?: number;
+    pageSize?: number;
+    username?: string;
+    realName?: string;
+    code?: string;
+    name?: string;
+    [key: string]: unknown;
+}
+
+// 员工/用户数据类型
+interface EmployeeData {
+    realName: string;
+    username: string;
+    phone: string;
+    password?: string;
+    role?: string;
+    status?: 'active' | 'inactive';
+    [key: string]: unknown;
+}
+
+// 菜单数据类型
+interface MenuData {
+    title?: string;
+    name?: string;
+    path?: string;
+    component?: string;
+    icon?: string;
+    order?: number;
+    parentId?: string;
+    type?: 'menu' | 'button';
+    [key: string]: unknown;
+}
+
+// 角色数据类型
+interface RoleData {
+    name?: string;
+    displayName?: string;
+    description?: string;
+    menus?: string[];
+    [key: string]: unknown;
+}
+
+export function getEmployeeList(params: ListQueryParams) {
     return http.get('/api/users', {
         params,
         metadata: {
@@ -8,7 +52,7 @@ export function getEmployeeList(params: any) {
         },
     });
 }
-export function getMenuList(params: any) {
+export function getMenuList(params: ListQueryParams) {
     return http.get('/api/menus', {
         params,
         metadata: {
@@ -23,7 +67,7 @@ export function getMenuTree() {
         },
     });
 }
-export function getRoleList(params: any) {
+export function getRoleList(params: ListQueryParams) {
     return http.get('/api/roles', {
         params,
         metadata: {
@@ -31,28 +75,28 @@ export function getRoleList(params: any) {
         },
     });
 }
-export function addEmployeeList(data: any) {
+export function addEmployeeList(data: EmployeeData) {
     return http.post('/api/users', data, {
         metadata: {
             action: 'employee_list',
         },
     });
 }
-export function updateEmployeeList(id: string, data: any) {
+export function updateEmployeeList(id: string, data: EmployeeData) {
     return http.put(`/api/users/${id}`, data, {
         metadata: {
             action: 'employee_list',
         },
     });
 }
-export function addMenuList(data: any) {
+export function addMenuList(data: MenuData) {
     return http.post('/api/menus', data, {
         metadata: {
             action: 'menu_list',
         },
     });
 }
-export function updateMenuList(id: string, data: any) {
+export function updateMenuList(id: string, data: MenuData) {
     return http.put(`/api/menus/${id}`, data, {
         metadata: {
             action: 'menu_list',
@@ -66,14 +110,14 @@ export function deleteMenuList(id: string) {
         },
     });
 }
-export function addRoleList(data: any) {
+export function addRoleList(data: RoleData) {
     return http.post('/api/roles', data, {
         metadata: {
             action: 'role_list',
         },
     });
 }
-export function updateRoleList(id: string, data: any) {
+export function updateRoleList(id: string, data: RoleData) {
     return http.put(`/api/roles/${id}`, data, {
         metadata: {
             action: 'role_list',
