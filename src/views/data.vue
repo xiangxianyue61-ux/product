@@ -10,6 +10,7 @@
         <div class="dashboard-header">
             <h1 class="dashboard-title">生产综合看板</h1>
             <div class="current-time">{{ currentTime }}</div>
+            <div v-if="!dataBoardLoaded" class="dashboard-loading">数据加载中（来自数据库）…</div>
         </div>
 
         <!-- 主要内容区域 -->
@@ -400,6 +401,7 @@ function applyDataBoardPayload(data: Record<string, unknown>) {
         dashboardData.value.productionProgress =
             data.productionProgress as typeof dashboardData.value.productionProgress;
     if (data.alarms) dashboardData.value.alarms = data.alarms as typeof dashboardData.value.alarms;
+    dataBoardLoaded.value = true;
 }
 const goHome = () => router.push('/home');
 
@@ -433,106 +435,54 @@ const openWorkshopDrawer = (key: WorkshopKey) => {
     workshopDrawerOpen.value = true;
 };
 
-// 看板数据
+// 看板数据：初始为空/0，仅展示后端数据库（Production/Abnormal/Achieve/AchievementRate/Warehouse）返回的数据
 const dashboardData = ref({
-    dailyProduction: 688,
-    plannedProduction: 860,
-    completionRate: 88.9,
-    dailyProductionData: [
-        { name: '笔记本', value: 200, color: '#4CAF50' },
-        { name: '屏幕', value: 180, color: '#2196F3' },
-        { name: '主板', value: 150, color: '#00BCD4' },
-        { name: '键盘', value: 158, color: '#FFC107' },
-    ],
-    accumulatedProduction: 24039,
-    accumulatedProducts: [
-        { name: '笔记本电脑', value: 8236, color: '#4CAF50' },
-        { name: '台式机', value: 8236, color: '#2196F3' },
-        { name: '屏幕', value: 8236, color: '#1a237e' },
-        { name: '主机', value: 8236, color: '#4CAF50' },
-        { name: '一体机', value: 8236, color: '#81C784' },
-        { name: '键盘', value: 8236, color: '#9C27B0' },
-    ],
-    rawMaterialIn: 786,
-    rawMaterialInMonthly: 2453,
-    finishedProductIn: 124,
-    finishedProductInMonthly: 4322,
-    finishedProductOut: 890,
-    finishedProductOutMonthly: 9312,
-    defectDistribution: [
-        { level: '一级', value: 5, color: '#2196F3' },
-        { level: '二级', value: 8, color: '#64B5F6' },
-        { level: '三级', value: 15, color: '#4CAF50' },
-        { level: '四级', value: 26, color: '#FFC107' },
-    ],
-    inProduction: 436,
-    unproduced: 58,
-    nonConforming: 12,
-    achievementRate: 92.3,
-    qualificationRate: 98.6,
+    dailyProduction: 0,
+    plannedProduction: 0,
+    completionRate: 0,
+    dailyProductionData: [] as { name: string; value: number; color: string }[],
+    accumulatedProduction: 0,
+    accumulatedProducts: [] as { name: string; value: number; color: string }[],
+    rawMaterialIn: 0,
+    rawMaterialInMonthly: 0,
+    finishedProductIn: 0,
+    finishedProductInMonthly: 0,
+    finishedProductOut: 0,
+    finishedProductOutMonthly: 0,
+    defectDistribution: [] as { level: string; value: number; color: string }[],
+    inProduction: 0,
+    unproduced: 0,
+    nonConforming: 0,
+    achievementRate: 0,
+    qualificationRate: 0,
     equipmentStatus: [
-        { name: '关键设备', total: 24, online: 20, utilization: 88.5, iconComponent: RobotOutlined },
-        { name: '加工设备', total: 63, online: 56, utilization: 93.8, iconComponent: ToolOutlined },
-        { name: '环境设备', total: 24, online: 20, utilization: 88.5, iconComponent: CloudOutlined },
+        { name: '关键设备', total: 0, online: 0, utilization: 0, iconComponent: RobotOutlined },
+        { name: '加工设备', total: 0, online: 0, utilization: 0, iconComponent: ToolOutlined },
+        { name: '环境设备', total: 0, online: 0, utilization: 0, iconComponent: CloudOutlined },
     ],
-    rawMaterialLossRate: 30,
-    rawMaterialWarning: 20,
-    rawMaterialStock: 3425,
-    rawMaterialStockChange: 2.2,
-    rawMaterialInbound: 24521,
-    rawMaterialInboundChange: 1.3,
-    finishedProductInbound: 2312,
-    finishedProductInboundChange: 2.5,
-    finishedProductOutbound: 2123,
-    finishedProductOutboundChange: 2.3,
-    productionProgress: [
-        {
-            orderNumber: 'GDBH0000001',
-            productName: '笔记本电脑',
-            dailyProduction: 30,
-            totalOrder: 1000,
-            progress: 86.8,
-            dueDate: '2025.08.26',
-        },
-        {
-            orderNumber: 'GDBH0000001',
-            productName: '笔记本电脑',
-            dailyProduction: 30,
-            totalOrder: 1000,
-            progress: 86.8,
-            dueDate: '2025.08.26',
-        },
-        {
-            orderNumber: 'GDBH0000001',
-            productName: '笔记本电脑',
-            dailyProduction: 30,
-            totalOrder: 1000,
-            progress: 86.8,
-            dueDate: '2025.08.26',
-        },
-        {
-            orderNumber: 'GDBH0000001',
-            productName: '笔记本电脑',
-            dailyProduction: 30,
-            totalOrder: 1000,
-            progress: 86.8,
-            dueDate: '2025.08.26',
-        },
-        {
-            orderNumber: 'GDBH0000001',
-            productName: '笔记本电脑',
-            dailyProduction: 30,
-            totalOrder: 1000,
-            progress: 86.8,
-            dueDate: '2025.08.26',
-        },
-    ],
-    alarms: [
-        { message: '设备H23的转速过快,温度超过70℃【预警值】', time: '06.20 12:08:23' },
-        { message: '设备H23的转速过快,温度超过70℃【预警值】', time: '06.20 12:08:23' },
-        { message: '设备H23的转速过快,温度超过70℃【预警值】', time: '06.20 12:08:23' },
-    ],
+    rawMaterialLossRate: 0,
+    rawMaterialWarning: 0,
+    rawMaterialStock: 0,
+    rawMaterialStockChange: 0,
+    rawMaterialInbound: 0,
+    rawMaterialInboundChange: 0,
+    finishedProductInbound: 0,
+    finishedProductInboundChange: 0,
+    finishedProductOutbound: 0,
+    finishedProductOutboundChange: 0,
+    productionProgress: [] as {
+        orderNumber: string;
+        productName: string;
+        dailyProduction: number;
+        totalOrder: number;
+        progress: number;
+        dueDate: string;
+    }[],
+    alarms: [] as { message: string; time: string }[],
 });
+
+// 是否已从数据库接口拉取过看板数据（用于显示加载态）
+const dataBoardLoaded = ref(false);
 
 // 图表引用
 const dailyProductionChart = ref<HTMLElement>();
@@ -588,9 +538,9 @@ const initDailyProductionChart = () => {
             height: 160,
         });
         const data = dashboardData.value.dailyProductionData;
-        const maxValue = Math.max(...data.map(item => item.value));
+        const maxValue = data.length ? Math.max(...data.map(item => item.value)) : 1;
 
-        // 创建4个同心圆环，每个环显示一个产品的进度
+        // 创建4个同心圆环，每个环显示一个产品的进度（无数据时为空）
         const series = data.map((item, index) => {
             const radiusStart = 35 + index * 12; // 35%, 47%, 59%, 71%
             const radiusEnd = radiusStart + 10; // 每个环宽度10%
@@ -1157,14 +1107,17 @@ onMounted(async () => {
     updateTime();
     setInterval(updateTime, 1000);
 
-    // 先拉取看板初始数据，再初始化图表与 SSE
+    // 先拉取看板初始数据（来自数据库），再初始化图表与 SSE
     try {
         const res = await apiFetch<{ success: boolean; data: Record<string, unknown> }>('/dashboard/data');
         if (res?.success && res.data) {
             applyDataBoardPayload(res.data);
+        } else {
+            dataBoardLoaded.value = true;
         }
     } catch {
-        // 接口失败时使用 dashboardData 默认值
+        // 接口失败时保持 0/空，仅标记已尝试加载
+        dataBoardLoaded.value = true;
     }
 
     nextTick(() => {
@@ -1268,6 +1221,15 @@ onBeforeUnmount(() => {
     padding: 12px 0;
     margin-bottom: 12px;
     text-align: center;
+}
+
+.dashboard-loading {
+    position: absolute;
+    left: 50%;
+    bottom: -8px;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(79, 195, 247, 0.85);
 }
 
 .dashboard-title {
