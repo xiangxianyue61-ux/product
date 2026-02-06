@@ -18,7 +18,7 @@ export function useCrudTable<TForm extends Record<string, any>, TRow extends { i
     options: CrudTableOptions<TForm, TRow>,
     initialForm: TForm
 ) {
-    const form = reactive({ ...(initialForm as any) }) as TForm;
+    const form = reactive({ ...initialForm }) as TForm;
     const loading = ref(false);
     const tableData = ref<TRow[]>([]);
     const selectedRowKeys = ref<Array<string | number>>([]);
@@ -59,7 +59,9 @@ export function useCrudTable<TForm extends Record<string, any>, TRow extends { i
     };
 
     const reset = async () => {
-        Object.keys(initialForm).forEach(k => ((form as any)[k] = (initialForm as any)[k]));
+        Object.keys(initialForm).forEach(k => {
+            (form as Record<string, unknown>)[k] = (initialForm as Record<string, unknown>)[k];
+        });
         pagination.current = 1;
         selectedRowKeys.value = [];
         await load();
@@ -82,7 +84,7 @@ export function useCrudTable<TForm extends Record<string, any>, TRow extends { i
         if (!options.deleteUrl) return;
         const id = options.rowId(row);
         try {
-            await apiFetch<ApiResult<any>>(options.deleteUrl(id), { method: 'DELETE' });
+            await apiFetch<ApiResult<unknown>>(options.deleteUrl(id), { method: 'DELETE' });
             message.success('删除成功');
             await load();
         } catch (e) {

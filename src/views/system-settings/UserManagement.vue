@@ -301,7 +301,14 @@ const handleAddSubmit = async () => {
     }
 
     try {
-        const payload: any = {
+        const payload: {
+            realName: string;
+            username: string;
+            phone: string;
+            role: string | undefined;
+            status: 'active' | 'inactive';
+            password?: string;
+        } = {
             realName: addForm.realName,
             username: addForm.username,
             phone: addForm.phone,
