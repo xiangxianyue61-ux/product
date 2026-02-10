@@ -47,7 +47,16 @@ export default defineConfig({
                 target: 'http://localhost:3000',
                 changeOrigin: true,
             },
+            '/notifications': {
+                target: 'http://localhost:3000',
+                changeOrigin: true,
+            },
             '/dashboard-ws': {
+                target: 'http://localhost:3000',
+                changeOrigin: true,
+                ws: true,
+            },
+            '/notify-ws': {
                 target: 'http://localhost:3000',
                 changeOrigin: true,
                 ws: true,

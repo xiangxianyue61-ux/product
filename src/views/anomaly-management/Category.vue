@@ -2,10 +2,10 @@
     <div class="bg-[#f0f2f5]">
         <a-card class="mb-4" :bordered="false">
             <a-form :model="searchForm" layout="inline">
-                <a-form-item label="项目编号">
+                <a-form-item label="异常分类编号">
                     <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
-                <a-form-item label="项目名称">
+                <a-form-item label="异常分类名称">
                     <a-input v-model:value="searchForm.name" placeholder="请输入内容" style="width: 220px" />
                 </a-form-item>
                 <a-form-item>
@@ -24,7 +24,7 @@
                 <a-button danger @click="deleteBySelection" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
                 <a-button @click="noop">导入</a-button>
-                <a-button @click="noop">导出</a-button>
+                <a-button @click="exportJson">导出 JSON</a-button>
             </a-space>
         </a-card>
 
@@ -32,6 +32,7 @@
             <a-table
                 :columns="columns"
                 :data-source="tableData"
+                :loading="loading"
                 :pagination="false"
                 :row-selection="{ selectedRowKeys, onChange: onSelectChange }"
                 row-key="id"
@@ -65,8 +66,8 @@
 
         <a-modal :open="detailOpen" title="异常分类详情" @cancel="detailOpen = false" :footer="null">
             <a-descriptions bordered size="small" :column="2">
-                <a-descriptions-item label="编号">{{ currentRow?.code }}</a-descriptions-item>
-                <a-descriptions-item label="名称">{{ currentRow?.name }}</a-descriptions-item>
+                <a-descriptions-item label="异常分类编号">{{ currentRow?.code }}</a-descriptions-item>
+                <a-descriptions-item label="异常分类名称">{{ currentRow?.name }}</a-descriptions-item>
                 <a-descriptions-item label="备注" :span="2">{{ currentRow?.remark }}</a-descriptions-item>
                 <a-descriptions-item label="创建人">{{ currentRow?.creator }}</a-descriptions-item>
                 <a-descriptions-item label="创建时间">{{ currentRow?.createTime }}</a-descriptions-item>
@@ -80,14 +81,14 @@
             @cancel="editOpen = false"
         >
             <a-form :model="editForm" :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
-                <a-form-item label="编号" required>
-                    <a-input v-model:value="editForm.code" />
+                <a-form-item label="异常分类编号" required>
+                    <a-input v-model:value="editForm.code" placeholder="如 WLBM000001" />
                 </a-form-item>
-                <a-form-item label="名称" required>
-                    <a-input v-model:value="editForm.name" />
+                <a-form-item label="异常分类名称" required>
+                    <a-input v-model:value="editForm.name" placeholder="如 计划异常、物料异常" />
                 </a-form-item>
                 <a-form-item label="备注">
-                    <a-input v-model:value="editForm.remark" />
+                    <a-input v-model:value="editForm.remark" placeholder="异常描述或备注" />
                 </a-form-item>
                 <a-form-item label="创建人">
                     <a-input v-model:value="editForm.creator" />
@@ -103,11 +104,14 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { apiFetch, type ListResult } from '../../utils/apiClient';
 
+// 表格行：与数据库 Abnormal 集合对应，本页展示 code/category/description/creator/createTime
 type Row = { id: number; code: string; name: string; remark: string; creator: string; createTime: string };
 
 const searchForm = reactive({ code: '', name: '' });
 const selectedRowKeys = ref<number[]>([]);
+const loading = ref(false);
 const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
 
 const columns = [
@@ -126,64 +130,47 @@ const columns = [
 ];
 
 const tableData = ref<Row[]>([]);
-const pad = (n: number, len = 9) => String(n).padStart(len, '0');
-const toTimeStr = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    const ss = String(d.getSeconds()).padStart(2, '0');
-    return `${y}.${m}.${day} ${hh}:${mm}:${ss}`;
-};
 
-const namePool = [
-    '计划异常',
-    '物料异常',
-    '设备异常',
-    '品质异常',
-    '产品异常',
-    '水电异常',
-    '工艺异常',
-    '人员异常',
-    '环境异常',
-    '仓储异常',
-];
-const remarkPool = ['无', '需要复盘', '已通知相关部门', '已挂起待处理', '高频问题重点关注'];
-const creatorPool = ['刘超', '王蒙', '张伟', '李强', '陈晨', '赵磊'];
-
-// 模拟数据（56条，完全在前端写死，不访问数据库）
-const allData: Row[] = Array.from({ length: 56 }, (_, idx) => {
-    const i = idx + 1;
-    const base = new Date(2025, 3, 24, 14, 0, 0);
-    base.setMinutes(base.getMinutes() + idx * 17);
+// 将 API 返回的 Abnormal 文档映射为表格行（code/category/description -> name/remark）
+function mapAbnormalToRow(doc: {
+    id: number;
+    code?: string;
+    category?: string;
+    description?: string;
+    creator?: string;
+    createTime?: string;
+}): Row {
     return {
-        id: i,
-        code: `YICBH${pad(i)}`,
-        name: namePool[idx % namePool.length]!,
-        remark: remarkPool[(idx * 3) % remarkPool.length]!,
-        creator: creatorPool[(idx * 5) % creatorPool.length]!,
-        createTime: toTimeStr(base),
+        id: doc.id,
+        code: doc.code ?? '',
+        name: doc.category ?? '',
+        remark: doc.description ?? '',
+        creator: doc.creator ?? '',
+        createTime: doc.createTime ?? '',
     };
-});
+}
 
-// 本页数据全部来自 allData，不访问后端
-const loadData = () => {
-    const code = searchForm.code.trim();
-    const name = searchForm.name.trim();
+// 表格数据来自数据库 Abnormal 集合（GET /api/abnormalList/list）
+const loadData = async () => {
+    loading.value = true;
+    try {
+        const params = new URLSearchParams();
+        params.set('page', String(pagination.current));
+        params.set('pageSize', String(pagination.pageSize));
+        if (searchForm.code.trim()) params.set('code', searchForm.code.trim());
+        if (searchForm.name.trim()) params.set('category', searchForm.name.trim());
 
-    // 本地过滤
-    const filtered = allData.filter(item => {
-        const matchCode = code ? item.code.includes(code) : true;
-        const matchName = name ? item.name.includes(name) : true;
-        return matchCode && matchName;
-    });
-
-    pagination.total = filtered.length;
-
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = filtered.slice(start, end);
+        const res = await apiFetch<ListResult<Record<string, unknown>>>(`/api/abnormalList/list?${params.toString()}`);
+        const list = (res.data ?? []).map(mapAbnormalToRow);
+        tableData.value = list;
+        pagination.total = res.total ?? 0;
+    } catch (e) {
+        tableData.value = [];
+        pagination.total = 0;
+        message.error(`获取异常分类数据失败：${(e as Error).message || '未知错误'}`);
+    } finally {
+        loading.value = false;
+    }
 };
 
 const onSelectChange = (keys: number[]) => {
@@ -213,7 +200,27 @@ const handlePageSizeChange = (_current: number, size: number) => {
     selectedRowKeys.value = [];
     loadData();
 };
-const noop = () => message.info('演示页面：此功能暂未接入后端');
+const noop = () => message.info('此功能暂未接入');
+
+// 导出当前列表数据为 JSON（来自数据库）
+const exportJson = () => {
+    const json = tableData.value.map(item => ({
+        id: item.id,
+        异常分类编号: item.code,
+        异常分类名称: item.name,
+        备注: item.remark,
+        创建人: item.creator,
+        创建时间: item.createTime,
+    }));
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `异常分类_${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    message.success(`已导出 ${json.length} 条记录`);
+};
 
 // CRUD
 const detailOpen = ref(false);
@@ -246,60 +253,63 @@ const openEditBySelection = () => {
     if (row) openEdit(row);
 };
 
-const handleSubmit = () => {
-    if (editMode.value === 'create') {
-        // 计算新的 id
-        const maxId = allData.reduce((max, item) => (item.id > max ? item.id : max), 0);
-        const newId = maxId + 1;
-        const d = new Date();
-        const newRow: Row = {
-            id: newId,
-            code: editForm.code || `YICBH${pad(newId)}`,
-            name: editForm.name,
-            remark: editForm.remark,
-            creator: editForm.creator || '系统',
-            createTime: editForm.createTime || toTimeStr(d),
+const handleSubmit = async () => {
+    try {
+        const payload = {
+            code: editForm.code,
+            category: editForm.name,
+            description: editForm.remark,
+            creator: editForm.creator || undefined,
+            createTime: editForm.createTime || undefined,
+            workOrder: '',
+            process: '',
+            level: '',
+            result: '未处理',
+            dutyDept: '',
+            dutyPerson: '',
         };
-        allData.push(newRow);
-        message.success('新增成功（本页为前端模拟数据）');
-    } else {
-        const idx = allData.findIndex(item => item.id === editForm.id);
-        if (idx !== -1) {
-            allData[idx] = { ...allData[idx], ...editForm };
-            message.success('编辑成功（本页为前端模拟数据）');
+        if (editMode.value === 'create') {
+            await apiFetch('/api/abnormalList', { method: 'POST', body: JSON.stringify(payload) });
+            message.success('新增成功');
+            // 立即刷新铃铛里的系统通知列表，无需刷新页面即可看到新异常通知
+            window.dispatchEvent(new CustomEvent('notification-list-refresh'));
+        } else {
+            await apiFetch(`/api/abnormalList/${editForm.id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    ...payload,
+                    id: editForm.id,
+                }),
+            });
+            message.success('编辑成功');
         }
-    }
-    editOpen.value = false;
-    loadData();
-};
-
-const deleteOne = (record: Row) => {
-    const idx = allData.findIndex(item => item.id === record.id);
-    if (idx !== -1) {
-        allData.splice(idx, 1);
-        message.success('删除成功（本页为前端模拟数据）');
-        // 如果当前页被删空，自动回到上一页
-        if ((pagination.current - 1) * pagination.pageSize >= allData.length && pagination.current > 1) {
-            pagination.current -= 1;
-        }
-        loadData();
+        editOpen.value = false;
+        await loadData();
+    } catch (e) {
+        message.error(`保存失败：${(e as Error).message || '未知错误'}`);
     }
 };
 
-const deleteBySelection = () => {
+const deleteOne = async (record: Row) => {
+    try {
+        await apiFetch(`/api/abnormalList/${record.id}`, { method: 'DELETE' });
+        message.success('删除成功');
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
+    }
+};
+
+const deleteBySelection = async () => {
     if (selectedRowKeys.value.length === 0) return;
-    const ids = new Set(selectedRowKeys.value);
-    for (let i = allData.length - 1; i >= 0; i -= 1) {
-        if (ids.has(allData[i].id)) {
-            allData.splice(i, 1);
-        }
+    try {
+        await Promise.all(selectedRowKeys.value.map(id => apiFetch(`/api/abnormalList/${id}`, { method: 'DELETE' })));
+        message.success(`已删除 ${selectedRowKeys.value.length} 条记录`);
+        selectedRowKeys.value = [];
+        await loadData();
+    } catch (e) {
+        message.error(`删除失败：${(e as Error).message || '未知错误'}`);
     }
-    message.success(`已删除 ${selectedRowKeys.value.length} 条记录（本页为前端模拟数据）`);
-    selectedRowKeys.value = [];
-    if ((pagination.current - 1) * pagination.pageSize >= allData.length && pagination.current > 1) {
-        pagination.current -= 1;
-    }
-    loadData();
 };
 
 onMounted(() => loadData());

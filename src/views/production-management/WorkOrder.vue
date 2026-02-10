@@ -193,7 +193,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
+import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import {
     SearchOutlined,
@@ -206,6 +207,7 @@ import {
 import { apiFetch, type ListResult } from '../../utils/apiClient';
 import ImportExportBar from '../../components/ImportExportBar.vue';
 
+const route = useRoute();
 interface WorkOrder {
     id: number;
     workOrderNumber: string;
@@ -409,6 +411,9 @@ const handleSubmit = async () => {
         if (editMode.value === 'create') {
             await apiFetch(`/api/productionWorkOrders`, { method: 'POST', body: JSON.stringify(payload) });
             message.success('新增成功');
+            pagination.current = 1; // 新增后回到第一页，便于看到最新数据
+            // 立即刷新铃铛里的系统通知列表，无需整页刷新即可看到新工单通知
+            window.dispatchEvent(new CustomEvent('notification-list-refresh'));
         } else {
             await apiFetch(`/api/productionWorkOrders/${editForm.id}`, {
                 method: 'PUT',
@@ -597,9 +602,24 @@ const handleJumpToPage = () => {
     }
 };
 
-// 初始化
+// 收到 WebSocket 工单通知时自动刷新列表，无需手动刷新
+const onListInvalidate = (e: Event) => {
+    const detail = (e as CustomEvent<{ type: string }>).detail;
+    if (detail?.type === 'work_order') loadData();
+};
+
 onMounted(() => {
+    // 如果从系统通知携带工单编号跳转而来，自动填充搜索条件
+    const q = route.query;
+    if (typeof q.workOrderNumber === 'string' && q.workOrderNumber) {
+        searchForm.workOrderNumber = q.workOrderNumber;
+    }
     loadData();
+    window.addEventListener('list-invalidate', onListInvalidate);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('list-invalidate', onListInvalidate);
 });
 </script>
 
