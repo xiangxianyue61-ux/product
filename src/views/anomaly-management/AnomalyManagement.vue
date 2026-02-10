@@ -158,10 +158,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue';
+import { useRoute } from 'vue-router';
 import { message } from 'ant-design-vue';
 import { PlusOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 import { apiFetch, type ListResult } from '../../utils/apiClient';
+
+const route = useRoute();
 
 type Row = {
     id: number;
@@ -208,6 +211,8 @@ const columns = [
 ];
 
 const tableData = ref<Row[]>([]);
+
+// 表格数据来自数据库 Abnormal 集合（GET /api/abnormalList/list）
 const loadData = async () => {
     loading.value = true;
     try {
@@ -351,6 +356,8 @@ const handleSubmit = async () => {
         }
         editOpen.value = false;
         await loadData();
+        // 立即刷新铃铛里的系统通知列表，无需整页刷新即可看到新异常通知
+        window.dispatchEvent(new CustomEvent('notification-list-refresh'));
     } catch (e) {
         message.error(`保存失败：${(e as Error).message || '未知错误'}`);
     }
@@ -380,5 +387,23 @@ const deleteBySelection = async () => {
 
 const noop = () => message.info('演示页面：此功能暂未接入后端');
 
-onMounted(() => loadData());
+// 收到 WebSocket 异常通知时自动刷新列表，无需手动刷新
+const onListInvalidate = (e: Event) => {
+    const detail = (e as CustomEvent<{ type: string }>).detail;
+    if (detail?.type === 'abnormal') loadData();
+};
+
+onMounted(() => {
+    // 如果从系统通知携带异常编号跳转而来，自动填充搜索条件
+    const q = route.query;
+    if (typeof q.code === 'string' && q.code) {
+        searchForm.code = q.code;
+    }
+    loadData();
+    window.addEventListener('list-invalidate', onListInvalidate);
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('list-invalidate', onListInvalidate);
+});
 </script>

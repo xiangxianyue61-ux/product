@@ -22,7 +22,53 @@
             <div class="flex items-center">
                 <a-space size="middle" align="center">
                     <a-button type="text" :icon="h(DesktopOutlined)" title="数据看板" @click="router.push('/data')" />
-                    <a-button type="text" :icon="h(BellOutlined)" title="初始化菜单" @click="handleInitAllMenus" />
+                    <a-dropdown trigger="click" placement="bottomRight" :overlayClassName="'notification-dropdown'">
+                        <a-badge :count="notificationUnreadCount" :offset="[-2, 2]" :overflow-count="99">
+                            <a-button type="text" :icon="h(BellOutlined)" title="系统通知" />
+                        </a-badge>
+                        <template #overlay>
+                            <div
+                                class="notification-panel"
+                                :key="'notif-' + notificationList.length + '-' + notificationUnreadCount"
+                            >
+                                <div class="notification-panel-header">
+                                    <span>系统通知</span>
+                                    <a
+                                        v-if="notificationUnreadCount > 0"
+                                        class="text-blue-500 text-sm"
+                                        @click="markAllNotificationsRead"
+                                    >
+                                        全部已读
+                                    </a>
+                                </div>
+                                <div class="notification-panel-list">
+                                    <div
+                                        v-for="n in notificationList"
+                                        :key="n.id"
+                                        class="notification-item"
+                                        :class="{ unread: !n.read }"
+                                        @click="handleNotificationClick(n)"
+                                    >
+                                        <div class="notification-item-title">{{ n.title }}</div>
+                                        <div class="notification-item-message">{{ n.message }}</div>
+                                        <div class="notification-item-time">
+                                            {{ formatNotificationTime(n.createdAt) }}
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-if="notificationList.length === 0 && !notificationLoading"
+                                        class="text-gray-400 text-center py-4 text-sm"
+                                    >
+                                        暂无通知
+                                    </div>
+                                    <div v-if="notificationLoading" class="text-gray-400 text-center py-4 text-sm">
+                                        加载中…
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </a-dropdown>
+                    <a-button type="text" :icon="h(SettingOutlined)" title="初始化菜单" @click="handleInitAllMenus" />
                     <a-button type="text" :icon="h(MessageOutlined)" />
                     <a-button type="text" :icon="h(FullscreenOutlined)" />
                     <a-dropdown>
@@ -90,7 +136,15 @@
 import { ref, computed, h, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useStore } from 'vuex';
-import { BellOutlined, MessageOutlined, FullscreenOutlined, DesktopOutlined } from '@ant-design/icons-vue';
+import {
+    BellOutlined,
+    MessageOutlined,
+    FullscreenOutlined,
+    DesktopOutlined,
+    SettingOutlined,
+} from '@ant-design/icons-vue';
+import { useNotifications } from '../composables/useNotifications';
+import type { NotificationItem } from '../composables/useNotifications';
 
 import { addMenuList } from '../views/system-settings/api/index';
 import { message } from 'ant-design-vue';
@@ -100,6 +154,55 @@ const router = useRouter();
 const store = useStore<{ role: string; menus?: string[] }>();
 
 const collapsed = ref(false);
+
+// 系统通知：铃铛、未读数、下拉列表、弹框
+const {
+    list: notificationList,
+    unreadCount: notificationUnreadCount,
+    loading: notificationLoading,
+    markRead: markNotificationRead,
+    markAllRead: markAllNotificationsRead,
+} = useNotifications({
+    onNew(item: NotificationItem) {
+        message.info(`${item.title}: ${item.message}`, 4);
+        // 通知列表页实时刷新：工单/异常创建后，其他端或他人操作时当前页列表自动更新
+        if (item.type === 'work_order' || item.type === 'abnormal') {
+            window.dispatchEvent(new CustomEvent('list-invalidate', { detail: { type: item.type } }));
+        }
+    },
+});
+
+// 点击系统通知：标记已读并跳转到对应详情页
+const handleNotificationClick = async (item: NotificationItem) => {
+    await markNotificationRead(item.id);
+    if (item.type === 'work_order') {
+        const workOrderNumber =
+            (item.meta && typeof item.meta.workOrderNumber === 'string' && item.meta.workOrderNumber) || '';
+        // 跳转到生产工单列表，并携带工单编号，列表自动筛选
+        router.push({
+            name: 'WorkOrder',
+            query: workOrderNumber ? { workOrderNumber } : undefined,
+        });
+    } else if (item.type === 'abnormal') {
+        const code = (item.meta && typeof item.meta.code === 'string' && item.meta.code) || '';
+        // 跳转到异常管理列表，并携带异常编号，列表自动筛选
+        router.push({
+            name: 'AnomalyManagementPage',
+            query: code ? { code } : undefined,
+        });
+    }
+};
+
+function formatNotificationTime(createdAt: string) {
+    if (!createdAt) return '';
+    const d = new Date(createdAt);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    if (diff < 60000) return '刚刚';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
+    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 
 // 模拟初始化所有菜单
 const handleInitAllMenus = async () => {
@@ -198,13 +301,12 @@ const handleInitAllMenus = async () => {
             try {
                 const res = await addMenuList(menu);
                 if (res.data.success) successCount++;
-            } catch (e) {
-                console.log(`Skip ${menu.name}`);
+            } catch {
+                // 菜单已存在时跳过
             }
         }
         message.success(`操作完成，成功添加 ${successCount} 个菜单`);
-    } catch (error) {
-        console.error(error);
+    } catch {
         message.error('初始化失败');
     }
 };
@@ -693,11 +795,8 @@ const handleSideMenuClick = (e: { key: string }) => {
     if (!e.key) return;
 
     // 这里的 key 是 route name
-    router.push({ name: e.key }).catch(err => {
-        // Ignore redundant navigation errors
-        if (err.name !== 'NavigationDuplicated') {
-            console.error(err);
-        }
+    router.push({ name: e.key }).catch(() => {
+        // 忽略导航错误（如重复导航）
     });
 };
 
@@ -780,5 +879,58 @@ const handleLogout = () => {
 :deep(.top-menu-no-collapse) {
     white-space: nowrap;
     overflow: visible !important;
+}
+</style>
+
+<style lang="css">
+.notification-dropdown {
+    min-width: 320px;
+    max-width: 400px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+.notification-panel {
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+}
+.notification-panel-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    background: #fff;
+}
+.notification-panel-list {
+    overflow-y: auto;
+    max-height: 360px;
+}
+.notification-item {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.notification-item:hover {
+    background: #f5f5f5;
+}
+.notification-item.unread {
+    background: #e6f7ff;
+}
+.notification-item-title {
+    font-weight: 500;
+    color: #000;
+    margin-bottom: 4px;
+}
+.notification-item-message {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+}
+.notification-item-time {
+    font-size: 12px;
+    color: #999;
 }
 </style>

@@ -45,6 +45,21 @@ export async function apiFetch<T>(input: string, init?: RequestInit): Promise<T>
         throw new Error('未登录或登录已过期，请重新登录');
     }
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return (await res.json()) as T;
+    const text = await res.text();
+    let data: unknown = null;
+    try {
+        data = text ? JSON.parse(text) : null;
+    } catch {
+        // 非 JSON 响应忽略
+    }
+
+    if (!res.ok) {
+        const msg =
+            (data && typeof data === 'object' && 'message' in data && String((data as { message?: string }).message)) ||
+            (data && typeof data === 'object' && 'error' in data && String((data as { error?: string }).error)) ||
+            `HTTP ${res.status}`;
+        throw new Error(msg);
+    }
+
+    return (data ?? {}) as T;
 }

@@ -320,10 +320,9 @@
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
-import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { CSS2DObject, CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import type { Object3D, WebGLRenderer, Scene, OrthographicCamera } from 'three';
+import type { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import type { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import {
     RobotOutlined,
     ToolOutlined,
@@ -335,72 +334,65 @@ import {
     ExportOutlined,
 } from '@ant-design/icons-vue';
 import { apiFetch } from '../utils/apiClient';
+import { message } from 'ant-design-vue';
 
 const router = useRouter();
+
+const DASHBOARD_FETCH_TIMEOUT_MS = 15000;
 
 // 设备状态图标（后端不返回组件，前端按顺序绑定）
 const EQUIPMENT_ICONS = [RobotOutlined, ToolOutlined, CloudOutlined];
 
+type EquipmentItem = { name: string; total: number; online: number; utilization: number };
 function applyDataBoardPayload(data: Record<string, unknown>) {
-    if (data.dailyProduction !== undefined) dashboardData.value.dailyProduction = data.dailyProduction as number;
-    if (data.plannedProduction !== undefined) dashboardData.value.plannedProduction = data.plannedProduction as number;
-    if (data.completionRate !== undefined) dashboardData.value.completionRate = data.completionRate as number;
+    const cur = dashboardData.value;
+    const eq =
+        data.equipmentStatus && Array.isArray(data.equipmentStatus)
+            ? (data.equipmentStatus as EquipmentItem[]).map((item, i) => ({
+                  ...item,
+                  iconComponent: EQUIPMENT_ICONS[i] ?? RobotOutlined,
+              }))
+            : cur.equipmentStatus;
+    const patch: Record<string, unknown> = { ...cur, equipmentStatus: eq };
+    if (data.dailyProduction !== undefined) patch.dailyProduction = data.dailyProduction as number;
+    if (data.plannedProduction !== undefined) patch.plannedProduction = data.plannedProduction as number;
+    if (data.completionRate !== undefined) patch.completionRate = data.completionRate as number;
     if (data.dailyProductionData)
-        dashboardData.value.dailyProductionData =
-            data.dailyProductionData as typeof dashboardData.value.dailyProductionData;
-    if (data.accumulatedProduction !== undefined)
-        dashboardData.value.accumulatedProduction = data.accumulatedProduction as number;
+        patch.dailyProductionData = data.dailyProductionData as typeof cur.dailyProductionData;
+    if (data.accumulatedProduction !== undefined) patch.accumulatedProduction = data.accumulatedProduction as number;
     if (data.accumulatedProducts)
-        dashboardData.value.accumulatedProducts =
-            data.accumulatedProducts as typeof dashboardData.value.accumulatedProducts;
-    if (data.rawMaterialIn !== undefined) dashboardData.value.rawMaterialIn = data.rawMaterialIn as number;
-    if (data.rawMaterialInMonthly !== undefined)
-        dashboardData.value.rawMaterialInMonthly = data.rawMaterialInMonthly as number;
-    if (data.finishedProductIn !== undefined) dashboardData.value.finishedProductIn = data.finishedProductIn as number;
+        patch.accumulatedProducts = data.accumulatedProducts as typeof cur.accumulatedProducts;
+    if (data.rawMaterialIn !== undefined) patch.rawMaterialIn = data.rawMaterialIn as number;
+    if (data.rawMaterialInMonthly !== undefined) patch.rawMaterialInMonthly = data.rawMaterialInMonthly as number;
+    if (data.finishedProductIn !== undefined) patch.finishedProductIn = data.finishedProductIn as number;
     if (data.finishedProductInMonthly !== undefined)
-        dashboardData.value.finishedProductInMonthly = data.finishedProductInMonthly as number;
-    if (data.finishedProductOut !== undefined)
-        dashboardData.value.finishedProductOut = data.finishedProductOut as number;
+        patch.finishedProductInMonthly = data.finishedProductInMonthly as number;
+    if (data.finishedProductOut !== undefined) patch.finishedProductOut = data.finishedProductOut as number;
     if (data.finishedProductOutMonthly !== undefined)
-        dashboardData.value.finishedProductOutMonthly = data.finishedProductOutMonthly as number;
-    if (data.defectDistribution)
-        dashboardData.value.defectDistribution =
-            data.defectDistribution as typeof dashboardData.value.defectDistribution;
-    if (data.inProduction !== undefined) dashboardData.value.inProduction = data.inProduction as number;
-    if (data.unproduced !== undefined) dashboardData.value.unproduced = data.unproduced as number;
-    if (data.nonConforming !== undefined) dashboardData.value.nonConforming = data.nonConforming as number;
-    if (data.achievementRate !== undefined) dashboardData.value.achievementRate = data.achievementRate as number;
-    if (data.qualificationRate !== undefined) dashboardData.value.qualificationRate = data.qualificationRate as number;
-    if (data.equipmentStatus && Array.isArray(data.equipmentStatus)) {
-        type EquipmentItem = { name: string; total: number; online: number; utilization: number };
-        dashboardData.value.equipmentStatus = (data.equipmentStatus as EquipmentItem[]).map((item, i) => ({
-            ...item,
-            iconComponent: EQUIPMENT_ICONS[i] ?? RobotOutlined,
-        }));
-    }
-    if (data.rawMaterialLossRate !== undefined)
-        dashboardData.value.rawMaterialLossRate = data.rawMaterialLossRate as number;
-    if (data.rawMaterialWarning !== undefined)
-        dashboardData.value.rawMaterialWarning = data.rawMaterialWarning as number;
-    if (data.rawMaterialStock !== undefined) dashboardData.value.rawMaterialStock = data.rawMaterialStock as number;
-    if (data.rawMaterialStockChange !== undefined)
-        dashboardData.value.rawMaterialStockChange = data.rawMaterialStockChange as number;
-    if (data.rawMaterialInbound !== undefined)
-        dashboardData.value.rawMaterialInbound = data.rawMaterialInbound as number;
+        patch.finishedProductOutMonthly = data.finishedProductOutMonthly as number;
+    if (data.defectDistribution) patch.defectDistribution = data.defectDistribution as typeof cur.defectDistribution;
+    if (data.inProduction !== undefined) patch.inProduction = data.inProduction as number;
+    if (data.unproduced !== undefined) patch.unproduced = data.unproduced as number;
+    if (data.nonConforming !== undefined) patch.nonConforming = data.nonConforming as number;
+    if (data.achievementRate !== undefined) patch.achievementRate = data.achievementRate as number;
+    if (data.qualificationRate !== undefined) patch.qualificationRate = data.qualificationRate as number;
+    if (data.rawMaterialLossRate !== undefined) patch.rawMaterialLossRate = data.rawMaterialLossRate as number;
+    if (data.rawMaterialWarning !== undefined) patch.rawMaterialWarning = data.rawMaterialWarning as number;
+    if (data.rawMaterialStock !== undefined) patch.rawMaterialStock = data.rawMaterialStock as number;
+    if (data.rawMaterialStockChange !== undefined) patch.rawMaterialStockChange = data.rawMaterialStockChange as number;
+    if (data.rawMaterialInbound !== undefined) patch.rawMaterialInbound = data.rawMaterialInbound as number;
     if (data.rawMaterialInboundChange !== undefined)
-        dashboardData.value.rawMaterialInboundChange = data.rawMaterialInboundChange as number;
-    if (data.finishedProductInbound !== undefined)
-        dashboardData.value.finishedProductInbound = data.finishedProductInbound as number;
+        patch.rawMaterialInboundChange = data.rawMaterialInboundChange as number;
+    if (data.finishedProductInbound !== undefined) patch.finishedProductInbound = data.finishedProductInbound as number;
     if (data.finishedProductInboundChange !== undefined)
-        dashboardData.value.finishedProductInboundChange = data.finishedProductInboundChange as number;
+        patch.finishedProductInboundChange = data.finishedProductInboundChange as number;
     if (data.finishedProductOutbound !== undefined)
-        dashboardData.value.finishedProductOutbound = data.finishedProductOutbound as number;
+        patch.finishedProductOutbound = data.finishedProductOutbound as number;
     if (data.finishedProductOutboundChange !== undefined)
-        dashboardData.value.finishedProductOutboundChange = data.finishedProductOutboundChange as number;
-    if (data.productionProgress)
-        dashboardData.value.productionProgress =
-            data.productionProgress as typeof dashboardData.value.productionProgress;
-    if (data.alarms) dashboardData.value.alarms = data.alarms as typeof dashboardData.value.alarms;
+        patch.finishedProductOutboundChange = data.finishedProductOutboundChange as number;
+    if (data.productionProgress) patch.productionProgress = data.productionProgress as typeof cur.productionProgress;
+    if (data.alarms) patch.alarms = data.alarms as typeof cur.alarms;
+    dashboardData.value = patch as typeof cur;
     dataBoardLoaded.value = true;
 }
 const goHome = () => router.push('/home');
@@ -495,9 +487,9 @@ let accumulatedChartInstance: echarts.ECharts | null = null;
 let defectChartInstance: echarts.ECharts | null = null;
 
 // 工厂 3D
-let factory3dRenderer: THREE.WebGLRenderer | null = null;
-let factory3dScene: THREE.Scene | null = null;
-let factory3dCamera: THREE.OrthographicCamera | null = null;
+let factory3dRenderer: WebGLRenderer | null = null;
+let factory3dScene: Scene | null = null;
+let factory3dCamera: OrthographicCamera | null = null;
 let factory3dControls: OrbitControls | null = null;
 let factory3dLabelRenderer: CSS2DRenderer | null = null;
 let factory3dRafId: number | null = null;
@@ -720,45 +712,56 @@ const initDefectChart = () => {
     }
 };
 
-// 初始化所有图表
+// 初始化所有图表（错峰初始化，避免主线程集中阻塞）
 const initAllCharts = () => {
     nextTick(() => {
-        setTimeout(() => {
-            if (dailyProductionChart.value && dailyProductionChart.value.offsetWidth > 0) {
-                initDailyProductionChart();
-            }
-            if (accumulatedChart.value && accumulatedChart.value.offsetWidth > 0) {
-                initAccumulatedChart();
-            }
-            if (defectChart.value && defectChart.value.offsetWidth > 0) {
-                initDefectChart();
-            }
-        }, 200);
+        const initOne = (fn: () => void, delay: number) => {
+            setTimeout(() => fn(), delay);
+        };
+        if (dailyProductionChart.value?.offsetWidth) initOne(initDailyProductionChart, 100);
+        if (accumulatedChart.value?.offsetWidth) initOne(initAccumulatedChart, 220);
+        if (defectChart.value?.offsetWidth) initOne(initDefectChart, 340);
     });
 };
 
 const GLB_URL = '/工厂3d模型.glb';
 
-function createWorkshopMarker(key: WorkshopKey, position: THREE.Vector3) {
+function createWorkshopMarker(
+    key: WorkshopKey,
+    position: { x: number; y: number; z: number },
+    CSS2DObjectClass: new (el: HTMLElement) => { position: { copy: (v: { x: number; y: number; z: number }) => void } }
+) {
     const el = document.createElement('div');
     el.className = 'factory-workshop-marker';
     el.textContent = String(key);
     el.title = workshopMap[key].name;
-    // 标签 DOM 放在 2D 层上，需要允许点击，同时不影响 OrbitControls
     el.style.pointerEvents = 'auto';
-    el.addEventListener('pointerdown', e => e.stopPropagation());
-    el.addEventListener('click', e => {
+    el.addEventListener('pointerdown', (e: Event) => e.stopPropagation());
+    el.addEventListener('click', (e: Event) => {
         e.stopPropagation();
         openWorkshopDrawer(key);
     });
-    const label = new CSS2DObject(el);
+    const label = new CSS2DObjectClass(el);
     label.position.copy(position);
     return label;
 }
 
-function initFactory3d() {
+async function initFactory3d() {
     const el = factory3dRef.value;
     if (!el || el.offsetWidth <= 0) return;
+
+    // 延迟加载 Three.js 及相关模块，减轻首屏解析与执行耗时
+    const [threeMod, orbitMod, gltfMod, css2dMod] = await Promise.all([
+        import('three'),
+        import('three/examples/jsm/controls/OrbitControls.js'),
+        import('three/examples/jsm/loaders/GLTFLoader.js'),
+        import('three/examples/jsm/renderers/CSS2DRenderer.js'),
+    ]);
+    type ThreeModule = typeof import('three');
+    const THREE: ThreeModule = ((threeMod as { default?: ThreeModule }).default ?? threeMod) as ThreeModule;
+    const { OrbitControls } = orbitMod;
+    const { GLTFLoader } = gltfMod;
+    const { CSS2DObject, CSS2DRenderer } = css2dMod;
 
     const w = el.offsetWidth;
     const viewH = Math.max(el.offsetHeight, 400);
@@ -834,19 +837,19 @@ function initFactory3d() {
     const loader = new GLTFLoader();
     loader.load(
         GLB_URL,
-        (gltf: { scene: THREE.Group }) => {
+        (gltf: { scene: import('three').Group }) => {
             const model = gltf.scene;
 
             // 使用模型自带材质/贴图（还原“模型本身颜色”），仅确保不透明并开启正确更新
-            model.traverse((child: THREE.Object3D) => {
-                const mesh = child as THREE.Mesh;
+            model.traverse((child: Object3D) => {
+                const mesh = child as import('three').Mesh;
                 if (mesh.isMesh && mesh.geometry && mesh.material) {
                     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-                    materials.forEach((mat: THREE.Material) => {
+                    materials.forEach((mat: import('three').Material) => {
                         // 避免上一次“线框/透明”改动导致的发黑/缺失
-                        if ('opacity' in mat) (mat as THREE.Material & { opacity?: number }).opacity = 1;
+                        if ('opacity' in mat) (mat as import('three').Material & { opacity?: number }).opacity = 1;
                         if ('transparent' in mat)
-                            (mat as THREE.Material & { transparent?: boolean }).transparent = false;
+                            (mat as import('three').Material & { transparent?: boolean }).transparent = false;
                         mat.needsUpdate = true;
                     });
                 }
@@ -876,9 +879,9 @@ function initFactory3d() {
             const raycaster = new THREE.Raycaster();
             const down = new THREE.Vector3(0, -1, 0);
 
-            const hitTargets: THREE.Object3D[] = [];
-            model.traverse(obj => {
-                if ((obj as THREE.Mesh).isMesh) hitTargets.push(obj);
+            const hitTargets: Object3D[] = [];
+            model.traverse((obj: Object3D) => {
+                if ((obj as { isMesh?: boolean }).isMesh) hitTargets.push(obj);
             });
 
             function placeMarkerOnSurface(key: WorkshopKey, x: number, z: number) {
@@ -889,18 +892,26 @@ function initFactory3d() {
                     if (!hit) return;
                     const p = hit.point.clone();
                     if (hit.face?.normal) {
-                        const n = hit.face.normal.clone().transformDirection((hit.object as THREE.Mesh).matrixWorld);
+                        const n = hit.face.normal
+                            .clone()
+                            .transformDirection((hit.object as { matrixWorld: import('three').Matrix4 }).matrixWorld);
                         p.addScaledVector(n, rayEpsilon);
                     } else {
                         p.y += rayEpsilon;
                     }
-                    scene.add(createWorkshopMarker(key, p));
+                    scene.add(createWorkshopMarker(key, p, CSS2DObject) as unknown as Object3D);
                     return;
                 }
-                scene.add(createWorkshopMarker(key, new THREE.Vector3(x, max.y + rayEpsilon, z)));
+                scene.add(
+                    createWorkshopMarker(
+                        key,
+                        new THREE.Vector3(x, max.y + rayEpsilon, z),
+                        CSS2DObject
+                    ) as unknown as Object3D
+                );
             }
 
-            const markerPositions: Record<WorkshopKey, THREE.Vector3> = {
+            const markerPositions: Record<WorkshopKey, import('three').Vector3> = {
                 1: new THREE.Vector3(min.x + size2.x * 0.28, 0, min.z + size2.z * 0.22),
                 2: new THREE.Vector3(min.x + size2.x * 0.3, 0, max.z - size2.z * 0.22),
                 3: new THREE.Vector3(max.x - size2.x * 0.22, 0, min.z + size2.z * 0.2),
@@ -943,13 +954,14 @@ function disposeFactory3d() {
         factory3dLabelRenderer.domElement?.remove();
         factory3dLabelRenderer = null;
     }
-    factory3dScene?.traverse((obj: THREE.Object3D) => {
-        const o = obj as THREE.Mesh & { material?: THREE.Material | THREE.Material[] };
+    factory3dScene?.traverse((obj: Object3D) => {
+        const o = obj as {
+            geometry?: { dispose: () => void };
+            material?: { dispose: () => void } | { dispose: () => void }[];
+        };
         if (o.geometry) o.geometry.dispose();
         if (o.material) {
-            Array.isArray(o.material)
-                ? (o.material as THREE.Material[]).forEach((m: THREE.Material) => m.dispose())
-                : (o.material as THREE.Material).dispose();
+            Array.isArray(o.material) ? o.material.forEach(m => m.dispose()) : o.material.dispose();
         }
     });
     factory3dScene?.clear();
@@ -981,21 +993,16 @@ const handleResize = () => {
     }
 };
 
-// 在浏览器空闲时再初始化 3D，避免阻塞首屏渲染
+// 在浏览器空闲时再初始化 3D，避免阻塞首屏数据与图表（3D 模型较重，延后 3.5s 或 idle）
 const scheduleFactory3dInit = () => {
+    const run = () => void initFactory3d();
     const anyWindow = window as typeof window & {
         requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => void;
     };
     if (anyWindow.requestIdleCallback) {
-        anyWindow.requestIdleCallback(
-            () => {
-                initFactory3d();
-            },
-            { timeout: 2000 }
-        );
+        anyWindow.requestIdleCallback(run, { timeout: 3500 });
     } else {
-        // 兼容不支持 requestIdleCallback 的浏览器：延后一点再初始化
-        setTimeout(() => initFactory3d(), 600);
+        setTimeout(run, 3500);
     }
 };
 
@@ -1103,29 +1110,108 @@ const initRealtime = () => {
     initWebSocket();
 };
 
-onMounted(async () => {
+// 在空闲时初始化图表，避免阻塞首屏渲染与交互
+const scheduleChartsInit = () => {
+    const run = () => nextTick(initAllCharts);
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (w.requestIdleCallback) {
+        w.requestIdleCallback(run, { timeout: 800 });
+    } else {
+        setTimeout(run, 100);
+    }
+};
+
+// 前端缓存：sessionStorage（页面刷新后失效，避免跨会话数据过期）
+const CACHE_KEY_DATA = 'dashboard_data_cache';
+const CACHE_KEY_QUICK = 'dashboard_quick_cache';
+const CACHE_TTL_MS = 5000; // 5秒缓存
+
+onMounted(() => {
     updateTime();
     setInterval(updateTime, 1000);
+    window.addEventListener('resize', handleResize);
 
-    // 先拉取看板初始数据（来自数据库），再初始化图表与 SSE
-    try {
-        const res = await apiFetch<{ success: boolean; data: Record<string, unknown> }>('/dashboard/data');
+    const controllerFull = new AbortController();
+    const timeoutId = setTimeout(() => controllerFull.abort(), DASHBOARD_FETCH_TIMEOUT_MS);
+    let chartsScheduled = false;
+
+    const applyQuick = (res: { success?: boolean; data?: Record<string, unknown> } | null) => {
         if (res?.success && res.data) {
             applyDataBoardPayload(res.data);
-        } else {
-            dataBoardLoaded.value = true;
+            sessionStorage.setItem(CACHE_KEY_QUICK, JSON.stringify({ data: res.data, ts: Date.now() }));
         }
-    } catch {
-        // 接口失败时保持 0/空，仅标记已尝试加载
         dataBoardLoaded.value = true;
+    };
+
+    // 检查快速数据缓存
+    const cachedQuick = sessionStorage.getItem(CACHE_KEY_QUICK);
+    if (cachedQuick) {
+        try {
+            const { data, ts } = JSON.parse(cachedQuick);
+            if (Date.now() - ts < CACHE_TTL_MS) {
+                applyQuick({ success: true, data });
+            }
+        } catch {
+            // 缓存解析失败，继续请求
+        }
     }
 
-    nextTick(() => {
-        initAllCharts();
-        scheduleFactory3dInit();
-    });
-    window.addEventListener('resize', handleResize);
-    initRealtime();
+    // 并行请求：不阻塞首屏，谁先返回谁先展示
+    apiFetch<{ success: boolean; data: Record<string, unknown> }>('/dashboard/data/quick')
+        .then(applyQuick)
+        .catch(() => {});
+
+    // 检查完整数据缓存
+    const cachedFull = sessionStorage.getItem(CACHE_KEY_DATA);
+    if (cachedFull) {
+        try {
+            const { data, ts } = JSON.parse(cachedFull);
+            if (Date.now() - ts < CACHE_TTL_MS) {
+                applyDataBoardPayload(data);
+                if (!chartsScheduled) {
+                    chartsScheduled = true;
+                    scheduleChartsInit();
+                }
+                dataBoardLoaded.value = true;
+            }
+        } catch {
+            // 缓存解析失败，继续请求
+        }
+    }
+
+    apiFetch<{ success: boolean; data: Record<string, unknown> }>('/dashboard/data', {
+        signal: controllerFull.signal,
+    })
+        .then(res => {
+            if (res?.success && res.data) {
+                applyDataBoardPayload(res.data);
+                sessionStorage.setItem(CACHE_KEY_DATA, JSON.stringify({ data: res.data, ts: Date.now() }));
+                if (!chartsScheduled) {
+                    chartsScheduled = true;
+                    scheduleChartsInit();
+                }
+            }
+            dataBoardLoaded.value = true;
+        })
+        .catch(err => {
+            dataBoardLoaded.value = true;
+            const msg =
+                err instanceof Error && err.name === 'AbortError'
+                    ? '数据加载超时，请确认后端服务（hd）已启动且运行在 3000 端口'
+                    : '数据加载失败，请检查后端服务与数据库连接';
+            message.error(msg);
+        })
+        .finally(() => {
+            clearTimeout(timeoutId);
+            if (!chartsScheduled) {
+                chartsScheduled = true;
+                scheduleChartsInit();
+            }
+        });
+
+    // 3D 与实时推送延后执行，避免与首屏数据/图表争抢主线程
+    nextTick(() => scheduleFactory3dInit());
+    setTimeout(() => initRealtime(), 3500);
 });
 
 onBeforeUnmount(() => {
