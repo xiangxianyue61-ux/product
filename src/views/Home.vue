@@ -3,20 +3,27 @@
         <div class="bg-[#f0f2f5] min-h-screen p-4">
             <!-- KPI卡片区域 -->
             <div class="flex gap-4 mb-4">
-                <div v-for="kpi in kpiList" :key="kpi.key" class="flex-1">
+                <template v-if="!dataLoaded">
+                    <div v-for="i in 5" :key="`skeleton-${i}`" class="flex-1">
+                        <a-card class="rounded-lg shadow-sm h-full" :bordered="false">
+                            <a-skeleton active :paragraph="{ rows: 2 }" />
+                        </a-card>
+                    </div>
+                </template>
+                <div v-else v-for="kpi in kpiList" :key="kpi.key" class="flex-1">
                     <a-card class="rounded-lg shadow-sm h-full" :bordered="false">
                         <div class="flex items-center gap-4">
                             <div
                                 class="w-[60px] h-[60px] rounded-lg flex items-center justify-center text-white text-2xl flex-shrink-0"
                                 :style="{ backgroundColor: kpi.iconBg }"
                             >
-                                <component :is="kpi.icon" />
+                                <component :is="markRaw(kpi.icon)" />
                             </div>
                             <div class="flex-1 min-w-0">
-                                <div class="text-sm text-gray-500 mb-2">{{ kpi.label }}</div>
+                                <div class="text-sm text-gray-500 mb-2" v-once>{{ kpi.label }}</div>
                                 <div class="text-2xl font-bold text-gray-800 mb-1">
                                     {{ kpi.value }}
-                                    <span v-if="kpi.unit" class="text-base ml-1">{{ kpi.unit }}</span>
+                                    <span v-if="kpi.unit" class="text-base ml-1" v-once>{{ kpi.unit }}</span>
                                 </div>
                                 <div
                                     class="text-xs flex items-center gap-1"
@@ -24,7 +31,7 @@
                                 >
                                     <ArrowUpOutlined v-if="kpi.trendType === 'up'" />
                                     <ArrowDownOutlined v-else />
-                                    <span>
+                                    <span v-once>
                                         本月较上月{{ kpi.trendType === 'up' ? '增加' : '减少' }}
                                         {{ Math.abs(kpi.trend) }}%
                                     </span>
@@ -41,7 +48,14 @@
                 <a-col :span="18">
                     <!-- 饼图区域 -->
                     <a-row :gutter="16" class="mb-4">
-                        <a-col :span="8" v-for="chart in donutCharts" :key="chart.key">
+                        <template v-if="!dataLoaded">
+                            <a-col :span="8" v-for="i in 3" :key="`chart-skeleton-${i}`">
+                                <a-card class="rounded-lg shadow-sm h-full" :bordered="false">
+                                    <a-skeleton active :paragraph="{ rows: 4 }" />
+                                </a-card>
+                            </a-col>
+                        </template>
+                        <a-col v-else :span="8" v-for="chart in donutCharts" :key="chart.key">
                             <a-card :title="chart.title" class="rounded-lg shadow-sm h-full" :bordered="false">
                                 <div :data-chart="chart.key" class="w-full h-[250px]"></div>
                                 <div class="mt-4 flex flex-wrap gap-4">
@@ -66,14 +80,26 @@
                     <a-row :gutter="16" class="mb-4">
                         <a-col :span="12">
                             <a-card title="工单产出统计" class="rounded-lg shadow-sm h-full" :bordered="false">
-                                <div class="text-sm text-gray-500 mb-2">近一年</div>
-                                <div ref="barChartRef" class="w-full h-[300px]"></div>
+                                <div class="text-sm text-gray-500 mb-2" v-once>近一年</div>
+                                <a-skeleton v-if="!dataLoaded" active :paragraph="{ rows: 6 }" />
+                                <div
+                                    v-else
+                                    ref="barChartRef"
+                                    class="w-full"
+                                    style="height: 300px; min-height: 300px"
+                                ></div>
                             </a-card>
                         </a-col>
                         <a-col :span="12">
                             <a-card title="产品合格率" class="rounded-lg shadow-sm h-full" :bordered="false">
-                                <div class="text-sm text-gray-500 mb-2">近一年</div>
-                                <div ref="lineChartRef" class="w-full h-[300px]"></div>
+                                <div class="text-sm text-gray-500 mb-2" v-once>近一年</div>
+                                <a-skeleton v-if="!dataLoaded" active :paragraph="{ rows: 6 }" />
+                                <div
+                                    v-else
+                                    ref="lineChartRef"
+                                    class="w-full"
+                                    style="height: 300px; min-height: 300px"
+                                ></div>
                             </a-card>
                         </a-col>
                     </a-row>
@@ -81,16 +107,19 @@
                     <!-- 生产进度表格 -->
                     <a-card class="rounded-lg shadow-sm" :bordered="false">
                         <template #title>
-                            <span>生产进度</span>
+                            <span v-once>生产进度</span>
                         </template>
                         <template #extra>
-                            <a class="text-blue-500 text-sm">全部 ></a>
+                            <a class="text-blue-500 text-sm" v-once>全部 ></a>
                         </template>
+                        <a-skeleton v-if="!dataLoaded" active :paragraph="{ rows: 5 }" />
                         <a-table
+                            v-else
                             :columns="progressColumns"
                             :data-source="progressData"
                             :pagination="false"
                             size="small"
+                            :row-key="getProgressRowKey"
                         >
                             <template #bodyCell="{ column, record }">
                                 <template v-if="column.key === 'progress'">
@@ -110,7 +139,8 @@
                 <!-- 右侧日历和待办 -->
                 <a-col :span="6">
                     <a-card class="rounded-lg shadow-sm mb-4" :bordered="false">
-                        <a-calendar v-model:value="calendarValue" :fullscreen="false" />
+                        <Calendar v-if="dataLoaded" v-model:value="calendarValue" :fullscreen="false" />
+                        <a-skeleton v-else active :paragraph="{ rows: 8 }" />
                     </a-card>
 
                     <a-card class="rounded-lg shadow-sm" :bordered="false">
@@ -126,9 +156,18 @@
                             <a-tab-pane key="handled" :tab="`我处理的(${handledList.length})`" />
                         </a-tabs>
                         <div class="max-h-[400px] overflow-y-auto">
+                            <template v-if="!dataLoaded">
+                                <a-skeleton
+                                    active
+                                    :paragraph="{ rows: 3 }"
+                                    v-for="i in 3"
+                                    :key="`todo-skeleton-${i}`"
+                                />
+                            </template>
                             <div
+                                v-else
                                 v-for="(item, index) in currentTodoList"
-                                :key="index"
+                                :key="`${todoActiveTab}-${index}`"
                                 class="py-3 border-b border-gray-200 last:border-b-0 flex items-center gap-3"
                             >
                                 <div
@@ -161,9 +200,9 @@
                                         class="w-10 h-10 rounded-lg flex items-center justify-center text-white text-lg mb-1"
                                         :style="{ backgroundColor: entry.color }"
                                     >
-                                        <component :is="entry.icon" />
+                                        <component :is="markRaw(entry.icon)" />
                                     </div>
-                                    <span class="text-xs text-gray-600 text-center leading-tight">
+                                    <span class="text-xs text-gray-600 text-center leading-tight" v-once>
                                         {{ entry.label }}
                                     </span>
                                 </div>
@@ -177,7 +216,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, shallowRef, markRaw } from 'vue';
 import { useRouter } from 'vue-router';
 import { Dayjs } from 'dayjs';
 import dayjs from 'dayjs';
@@ -197,8 +236,16 @@ import {
     ToolOutlined,
     WarningOutlined,
 } from '@ant-design/icons-vue';
-import * as echarts from 'echarts';
 import { apiFetch } from '../utils/apiClient';
+import { Calendar } from 'ant-design-vue';
+
+// 懒加载 echarts（延迟到需要时再加载，减少首屏 JS 体积）
+let echartsModule: typeof import('echarts') | null = null;
+const loadEcharts = async () => {
+    if (echartsModule) return echartsModule;
+    echartsModule = await import('echarts');
+    return echartsModule;
+};
 
 // 类型定义
 type DonutItem = { name: string; value: number };
@@ -340,7 +387,18 @@ const progressColumns = [
     { title: '需求日期', dataIndex: 'date', key: 'date', width: 120 },
 ];
 
-const progressData = ref<any[]>([]);
+type ProgressRow = {
+    key: string;
+    code: string;
+    name: string;
+    progress: number;
+    product: string;
+    quantity: number;
+    priority: string;
+    date: string;
+};
+const progressData = ref<ProgressRow[]>([]);
+const getProgressRowKey = (record: ProgressRow) => record.key || record.code;
 
 // 快捷入口（点击跳转对应路由）
 const router = useRouter();
@@ -384,8 +442,9 @@ const currentTodoList = computed(() => {
 
 const barChartRef = ref<HTMLElement>();
 const lineChartRef = ref<HTMLElement>();
-const donutChartInstances = ref<echarts.ECharts[]>([]);
+const donutChartInstances = shallowRef<echarts.ECharts[]>([]);
 let sseEventSource: EventSource | null = null;
+const dataLoaded = ref(false);
 
 // 将后端/SSE 的看板数据应用到首页（KPI、饼图、生产进度表、工单产出/产品合格率近一年）
 type DashboardPayload = {
@@ -423,15 +482,12 @@ const lineChartData = ref<{ months: string[]; values: number[] }>({
 const barChartInstance = ref<echarts.ECharts | null>(null);
 const lineChartInstance = ref<echarts.ECharts | null>(null);
 
+// 批量更新数据，减少响应式触发次数（单次赋值）
 const applyDashboardData = (data: DashboardPayload) => {
     const { kpis, workOrderStats, productStats, defectStats, progressTable } = data;
-    if (data.workOrderOutputMonthly?.months?.length) {
-        barChartData.value = data.workOrderOutputMonthly;
-    }
-    if (data.productQualificationMonthly?.months?.length) {
-        lineChartData.value = data.productQualificationMonthly;
-    }
-    kpiList.value = kpiList.value.map(item => {
+
+    // 批量构建新状态，单次赋值
+    const newKpiList = kpiList.value.map(item => {
         if (item.key === 'in-production') return { ...item, value: String(kpis.inProduction.value) };
         if (item.key === 'unproduced') return { ...item, value: String(kpis.unproduced.value) };
         if (item.key === 'non-conforming') return { ...item, value: String(kpis.nonConforming.value) };
@@ -443,7 +499,8 @@ const applyDashboardData = (data: DashboardPayload) => {
         }
         return item;
     });
-    donutCharts.value = donutCharts.value.map(chart => {
+
+    const newDonutCharts = donutCharts.value.map(chart => {
         if (chart.key === 'work-order') {
             return { ...chart, total: workOrderStats.total, data: workOrderStats.items };
         }
@@ -455,7 +512,18 @@ const applyDashboardData = (data: DashboardPayload) => {
         }
         return chart;
     });
+
+    // 单次赋值，减少响应式更新
+    kpiList.value = newKpiList;
+    donutCharts.value = newDonutCharts;
     progressData.value = progressTable;
+    if (data.workOrderOutputMonthly?.months?.length) {
+        barChartData.value = data.workOrderOutputMonthly;
+    }
+    if (data.productQualificationMonthly?.months?.length) {
+        lineChartData.value = data.productQualificationMonthly;
+    }
+    dataLoaded.value = true;
 };
 
 // 刷新已初始化的饼图实例（SSE 更新数据后调用）
@@ -538,20 +606,75 @@ const initSSE = () => {
     }
 };
 
+// 前端缓存：sessionStorage（页面刷新后失效，避免跨会话数据过期）
+const CACHE_KEY_OVERVIEW = 'dashboard_overview_cache';
+const CACHE_TTL_MS = 5000; // 5秒缓存，减少重复请求
+
 // 从后端加载首页看板数据（与 SSE 同源，初次进入页面拉取）
 const loadDashboardData = async () => {
     try {
-        const res = await apiFetch<{ success: boolean; data: DashboardPayload }>('/dashboard/overview');
-        if (!res.success) return;
-        applyDashboardData(res.data);
+        // 检查缓存
+        const cached = sessionStorage.getItem(CACHE_KEY_OVERVIEW);
+        if (cached) {
+            try {
+                const { data, ts } = JSON.parse(cached);
+                if (Date.now() - ts < CACHE_TTL_MS) {
+                    applyDashboardData(data);
+                    // 延迟刷新图表，避免阻塞数据展示
+                    nextTick(() => {
+                        refreshDonutChartsOption();
+                        refreshBarChartOption();
+                        refreshLineChartOption();
+                    });
+                    return;
+                }
+            } catch {
+                // 缓存解析失败，继续请求
+            }
+        }
+
+        // 添加超时控制（10秒）
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        try {
+            const res = await apiFetch<{ success: boolean; data: DashboardPayload }>('/dashboard/overview', {
+                signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+
+            if (!res.success) {
+                dataLoaded.value = true; // 即使失败也显示页面，避免一直显示骨架屏
+                return;
+            }
+            applyDashboardData(res.data);
+            // 更新缓存
+            sessionStorage.setItem(CACHE_KEY_OVERVIEW, JSON.stringify({ data: res.data, ts: Date.now() }));
+            // 数据到达后延迟刷新图表，优先展示数据
+            nextTick(() => {
+                refreshDonutChartsOption();
+                refreshBarChartOption();
+                refreshLineChartOption();
+            });
+        } catch (e) {
+            clearTimeout(timeoutId);
+            if (e instanceof Error && e.name === 'AbortError') {
+                // 超时：使用缓存或默认数据
+                dataLoaded.value = true;
+            } else {
+                throw e;
+            }
+        }
     } catch (e) {
+        dataLoaded.value = true; // 失败时也显示页面
         // eslint-disable-next-line no-console
         console.error('加载首页看板数据失败', e);
     }
 };
 
 // 初始化饼图
-const initDonutCharts = () => {
+const initDonutCharts = async () => {
+    const echarts = await loadEcharts();
     nextTick(() => {
         donutChartInstances.value = [];
         donutCharts.value.forEach(chart => {
@@ -683,11 +806,16 @@ const setBarChartOption = () => {
 };
 const refreshBarChartOption = () => nextTick(setBarChartOption);
 
-const initBarChart = () => {
+const initBarChart = async () => {
+    const echarts = await loadEcharts();
     nextTick(() => {
         if (barChartRef.value) {
             barChartInstance.value = echarts.init(barChartRef.value);
             setBarChartOption();
+            // 确保图表正确渲染大小
+            setTimeout(() => {
+                barChartInstance.value?.resize();
+            }, 100);
         }
     });
 };
@@ -749,28 +877,100 @@ const setLineChartOption = () => {
 };
 const refreshLineChartOption = () => nextTick(setLineChartOption);
 
-const initLineChart = () => {
+const initLineChart = async () => {
+    const echarts = await loadEcharts();
     nextTick(() => {
         if (lineChartRef.value) {
             lineChartInstance.value = echarts.init(lineChartRef.value);
             setLineChartOption();
+            // 确保图表正确渲染大小
+            setTimeout(() => {
+                lineChartInstance.value?.resize();
+            }, 100);
         }
     });
 };
 
-onMounted(() => {
-    loadDashboardData().then(() => {
-        initDonutCharts();
-        initBarChart();
-        initLineChart();
+// 在空闲时初始化图表，避免阻塞首屏（异步加载 echarts）
+const scheduleChartsInit = () => {
+    const run = async () => {
+        await nextTick();
+        // 并行初始化所有图表（echarts 会在内部缓存）
+        await Promise.all([initDonutCharts(), initBarChart(), initLineChart()]);
+    };
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (w.requestIdleCallback) {
+        w.requestIdleCallback(
+            () => {
+                run().catch(() => {
+                    // 静默失败，不影响页面渲染
+                });
+            },
+            { timeout: 300 }
+        );
+    } else {
+        setTimeout(() => {
+            run().catch(() => {
+                // 静默失败，不影响页面渲染
+            });
+        }, 50);
+    }
+};
+
+// 窗口大小变化时调整图表大小
+const handleResize = () => {
+    if (barChartInstance.value) {
+        barChartInstance.value.resize();
+    }
+    if (lineChartInstance.value) {
+        lineChartInstance.value.resize();
+    }
+    // 饼图也需要调整
+    donutChartInstances.value.forEach(instance => {
+        if (instance) instance.resize();
     });
-    initSSE();
+};
+
+onMounted(() => {
+    // 预加载 echarts（在后台加载，不阻塞首屏）
+    loadEcharts().catch(() => {
+        // 静默失败
+    });
+
+    // 优先加载数据，数据到达后再初始化图表（避免空图表闪烁）
+    loadDashboardData().then(() => {
+        // 数据加载完成后，在空闲时初始化图表
+        scheduleChartsInit();
+    });
+
+    // 延迟启动 SSE，避免与首屏请求竞争
+    setTimeout(() => initSSE(), 2000);
+
+    // 监听窗口大小变化
+    window.addEventListener('resize', handleResize);
 });
 
 onBeforeUnmount(() => {
+    // 移除窗口大小变化监听
+    window.removeEventListener('resize', handleResize);
+
     if (sseEventSource) {
         sseEventSource.close();
         sseEventSource = null;
     }
+
+    // 销毁图表实例
+    if (barChartInstance.value) {
+        barChartInstance.value.dispose();
+        barChartInstance.value = null;
+    }
+    if (lineChartInstance.value) {
+        lineChartInstance.value.dispose();
+        lineChartInstance.value = null;
+    }
+    donutChartInstances.value.forEach(instance => {
+        if (instance) instance.dispose();
+    });
+    donutChartInstances.value = [];
 });
 </script>
