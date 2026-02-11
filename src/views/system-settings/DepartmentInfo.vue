@@ -23,7 +23,7 @@
                 <div class="col-span-4 border-r border-gray-200 pr-4">
                     <div class="flex items-center justify-between mb-2">
                         <div class="font-semibold text-gray-800">组织架构</div>
-                        <a-button type="link" size="small" @click="noop">新增</a-button>
+                        <a-button type="link" size="small" @click="noop" v-action="'POST'">新增</a-button>
                     </div>
                     <a-tree
                         :tree-data="treeData"
@@ -92,7 +92,7 @@
 
                     <div class="mt-6 flex items-center justify-center gap-4">
                         <a-button @click="noop">返回</a-button>
-                        <a-button type="primary" @click="noop">确定</a-button>
+                        <a-button type="primary" @click="noop" v-action="'PUT'">确定</a-button>
                     </div>
                 </div>
             </div>

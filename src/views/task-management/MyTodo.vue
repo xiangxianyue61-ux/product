@@ -38,7 +38,15 @@
                         <a class="text-blue-500" @click="noop">{{ record.binding }}</a>
                     </template>
                     <template v-else-if="column.key === 'action'">
-                        <a class="text-blue-500" @click="noop">详情</a>
+                        <a-space>
+                            <a-popconfirm title="确定通过此任务吗？" @confirm="handleComplete(record.code, true)">
+                                <a class="text-blue-500">通过</a>
+                            </a-popconfirm>
+                            <a-divider type="vertical" />
+                            <a-popconfirm title="确定拒绝此任务吗？" @confirm="handleComplete(record.code, false)">
+                                <a class="text-red-500">拒绝</a>
+                            </a-popconfirm>
+                        </a-space>
                     </template>
                 </template>
             </a-table>
@@ -62,9 +70,10 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { getMyTasks, completeTask } from '../../api/modules/workflow';
 
 type Row = {
-    id: number;
+    id: string;
     code: string;
     name: string;
     node: string;
@@ -77,7 +86,7 @@ type Row = {
 };
 
 const searchForm = reactive({ code: '', flowName: '' });
-const pagination = reactive({ current: 1, pageSize: 15, total: 56 });
+const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
 
 const columns = [
     {
@@ -86,37 +95,60 @@ const columns = [
         width: 60,
         customRender: ({ index }: { index: number }) => (pagination.current - 1) * pagination.pageSize + index + 1,
     },
-    { title: '任务编号', dataIndex: 'code', key: 'code', width: 160 },
-    { title: '任务名称', dataIndex: 'name', key: 'name', width: 180 },
-    { title: '任务节点', dataIndex: 'node', key: 'node', width: 140 },
-    { title: '待办类型', dataIndex: 'todoType', key: 'todoType', width: 120 },
+    { title: '任务ID', dataIndex: 'code', key: 'code', width: 220 }, // Changed width for UUID
+    { title: '流程名称', dataIndex: 'name', key: 'name', width: 180 },
+    { title: '当前节点', dataIndex: 'node', key: 'node', width: 140 },
+    { title: '流程标识', dataIndex: 'todoType', key: 'todoType', width: 120 },
     { title: '发起时间', dataIndex: 'startTime', key: 'startTime', width: 180 },
     { title: '最晚处理时间', dataIndex: 'deadline', key: 'deadline', width: 180 },
     { title: '发起人', dataIndex: 'sponsor', key: 'sponsor', width: 120 },
     { title: '处理状态', key: 'status', width: 120 },
-    { title: '绑定', key: 'binding', width: 140 },
-    { title: '操作', key: 'action', width: 120, fixed: 'right' },
+    { title: '绑定业务', key: 'binding', width: 140 },
+    { title: '操作', key: 'action', width: 150, fixed: 'right' },
 ];
 
 const tableData = ref<Row[]>([]);
 
-const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
-    id: i + 1,
-    code: `RWBH${String(i + 1).padStart(10, '0')}`,
-    name: ['2025告警任务', '2025审批任务', '2025保养任务', '2025维修任务'][i % 4],
-    node: '处理人',
-    todoType: ['告警待办', '工艺流转卡审批', '保养待办', '维修待办'][i % 4],
-    startTime: '2025.04.24 14:00:00',
-    deadline: '2025.04.26 18:00:00',
-    sponsor: '李民浩',
-    status: '未处理',
-    binding: i % 3 === 1 ? '工艺流转卡' : '',
-}));
+const loadData = async () => {
+    try {
+        const res = await getMyTasks();
+        if (res.data && res.data.success) {
+            tableData.value = res.data.data.map((item: any) => ({
+                id: item.taskId,
+                code: item.taskId,
+                name: item.processName,
+                node: item.currentNodeName || item.currentNodeId,
+                todoType: item.processKey,
+                startTime: new Date(item.createdAt).toLocaleString(),
+                deadline: '无',
+                sponsor: item.initiator?.name || '未知',
+                status: '待处理',
+                binding: item.businessKey || '',
+            }));
+            pagination.total = tableData.value.length;
+        }
+    } catch (e) {
+        console.error('Failed to load tasks:', e);
+        // message.error('加载任务失败');
+    }
+};
 
-const loadData = () => {
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+const handleComplete = async (taskId: string, pass: boolean) => {
+    try {
+        const res = await completeTask(taskId, {
+            pass,
+            comment: pass ? 'Approved' : 'Rejected',
+        });
+        if (res.data && res.data.success) {
+            message.success('操作成功');
+            loadData();
+        } else {
+            message.error(res.data?.message || '操作失败');
+        }
+    } catch (e) {
+        console.error(e);
+        message.error('操作失败');
+    }
 };
 
 const handleSearch = () => {
@@ -143,7 +175,7 @@ const handlePageSizeChange = (_current: number, size: number) => {
     loadData();
 };
 
-const noop = () => message.info('演示页面：此功能暂未接入后端');
+const noop = () => message.info('功能开发中');
 
 onMounted(() => loadData());
 </script>

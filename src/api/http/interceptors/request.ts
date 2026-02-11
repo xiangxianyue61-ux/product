@@ -15,14 +15,19 @@ export function setupRequestInterceptor(instance: AxiosInstance) {
             config.headers!.Authorization = token;
         }
 
-        // 初始化请求元数据，用于监控
+        // 如果存在 action metadata，添加到 X-Action 请求头用于后端鉴权
+        if (config.metadata?.action) {
+            config.headers!['X-Action'] = config.metadata.action;
+        }
+
+        // 补充请求元数据，用于监控
         config.metadata = {
+            ...config.metadata,
             requestId: generateUUID(),
             startTime: Date.now(),
             url: config.url,
             method: config.method,
             page: window.location.pathname,
-            action: config.meta?.action,
         };
         return config;
     });

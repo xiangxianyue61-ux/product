@@ -44,6 +44,15 @@ interface RoleData {
     [key: string]: unknown;
 }
 
+// Workflow Types
+interface WorkflowDefinitionData {
+    name: string;
+    key: string;
+    xml: string;
+    description?: string;
+    triggerRole?: string;
+}
+
 export function getEmployeeList(params: ListQueryParams) {
     return http.get('/api/users', {
         params,
@@ -130,4 +139,33 @@ export function getSystemProfile() {
             action: 'user_profile',
         },
     });
+}
+
+// Workflow APIs
+export function saveWorkflowDefinition(data: WorkflowDefinitionData) {
+    return http.post('/api/workflow/definitions', data, {
+        metadata: {
+            action: 'process-design',
+        },
+    });
+}
+
+export function getWorkflowDefinitions() {
+    return http.get('/api/workflow/definitions', {
+        metadata: {
+            action: 'process-design',
+        },
+    });
+}
+
+export function startWorkflow() {
+    return http.post(
+        '/api/workflow/start',
+        {},
+        {
+            metadata: {
+                action: 'workflow-start',
+            },
+        }
+    );
 }

@@ -50,11 +50,15 @@ const handleLogin = async () => {
                     .filter((name): name is string => typeof name === 'string'); // 使用路由 name
             }
 
+            // Extract resource permissions
+            const permissions = roleInfo?.permissions || [];
+
             store.commit('login', {
                 role: roleName,
                 token: res.data.token,
                 isFirstLogin: isFirstLogin,
                 menus: menus,
+                permissions: permissions,
             });
 
             if (isFirstLogin) {
