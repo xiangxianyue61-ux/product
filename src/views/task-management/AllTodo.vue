@@ -325,6 +325,8 @@ async function submitForm() {
             const nextId = getNextId();
             await apiFetch('/api/tasks', { method: 'POST', body: JSON.stringify({ ...payload, id: nextId }) });
             message.success('新增成功');
+            // 新增任务成功后，刷新系统通知列表，保证铃铛里能立刻看到“任务创建”通知
+            window.dispatchEvent(new CustomEvent('notification-list-refresh'));
         } else {
             await apiFetch(`/api/tasks/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
             message.success('编辑成功');
