@@ -104,7 +104,7 @@
                                 {{ child.title }}
                             </a-menu-item>
                         </a-sub-menu>
-                        <a-menu-item v-else :key="`${group.key}-item`">
+                        <a-menu-item v-else :key="group.key">
                             {{ group.title }}
                         </a-menu-item>
                     </template>
@@ -112,7 +112,7 @@
             </a-layout-sider>
 
             <!-- 主内容区 -->
-            <a-layout-content class="bg-[#f0f2f5] overflow-auto">
+            <a-layout-content class="bg-[#f0f2f5] overflow-auto relative">
                 <div class="p-6 min-h-[calc(100vh-64px)]">
                     <!-- 面包屑导航 -->
                     <a-breadcrumb class="mb-4" v-if="breadcrumbItems.length > 0">
@@ -225,17 +225,7 @@ const handleInitAllMenus = async () => {
     // 1. 处理静态定义菜单
     for (const [, groups] of Object.entries(staticMenus)) {
         for (const group of groups) {
-            // 添加一级/二级菜单（分组）
-            // 这里简化处理：我们只关心叶子节点对应的路由，以及它们的层级结构
-            // 但为了完整性，我们应该尽量还原结构
-
             if (group.children) {
-                // 这是一个分组（二级菜单）
-                // 构造分组数据（虽然它可能不是一个真实路由，但在菜单表中需要存在以构建树）
-                // 注意：这里我们主要关注"路由菜单"。如果分组只是纯UI分组，可能不需要存入数据库
-                // 除非前端侧边栏是完全动态生成的。
-                // 根据用户需求，他是想"添加一个所有路由页面的menu"，目的是让权限系统能选到这些页面
-
                 for (const child of group.children) {
                     // 查找路由定义
                     const routeDef = router.getRoutes().find(r => r.name === child.key);
@@ -314,13 +304,26 @@ const handleInitAllMenus = async () => {
 const routerList = computed(() => {
     const rootRoute = router.options.routes.find(r => r.path === '/');
     const children = rootRoute && 'children' in rootRoute ? rootRoute.children : undefined;
-    return (children ?? []).filter(item => {
-        if (item.meta?.is_menu) {
-            const roles = item.meta.role as string[] | undefined;
-            if (!roles || roles.length === 0) return true;
-            return roles.includes(store.state.role);
+    const allowedMenus: string[] = store.state.menus || [];
+    const isAdmin = store.state.role === 'admin';
+
+    const hasAllowedChild = (route: any): boolean => {
+        if (route.name && allowedMenus.includes(String(route.name))) return true;
+        if (route.children && route.children.length > 0) {
+            return route.children.some((child: any) => hasAllowedChild(child));
         }
         return false;
+    };
+
+    return (children ?? []).filter(item => {
+        if (!item.meta?.is_menu) return false;
+        if (isAdmin) return true;
+        if (allowedMenus.length > 0) {
+            return hasAllowedChild(item) || (item.name && allowedMenus.includes(String(item.name)));
+        }
+        const roles = item.meta.role as string[] | undefined;
+        if (!roles || roles.length === 0) return true;
+        return roles.includes(store.state.role);
     });
 });
 
@@ -501,7 +504,13 @@ const staticMenus: Record<string, SideMenuItem[]> = {
                 { key: 'RoleManagement', title: '角色管理' },
                 { key: 'UserManagement', title: '用户管理' },
                 { key: 'MenuManagement', title: '菜单管理' },
+                { key: 'PermissionConfig', title: '权限配置' },
             ],
+        },
+        {
+            title: '流程管理',
+            key: 'process-config',
+            children: [{ key: 'ProcessDesign', title: '流程设计' }],
         },
         {
             title: '生产配置',

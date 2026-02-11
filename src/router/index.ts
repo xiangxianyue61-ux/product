@@ -509,6 +509,24 @@ const routes: RouteRecordRaw[] = [
                         meta: { title: '菜单管理', module: 'system-settings', role: ['admin'] },
                     },
                     {
+                        path: 'permission-config',
+                        name: 'PermissionConfig',
+                        component: () => import('../views/system-settings/PermissionConfig.vue'),
+                        meta: { title: '权限配置', module: 'system-settings', role: ['admin'] },
+                    },
+                    {
+                        path: 'process-design',
+                        name: 'ProcessDesign',
+                        component: () => import('../views/system-settings/ProcessDesign.vue'),
+                        meta: { title: '流程设计', module: 'system-settings', role: ['admin'] },
+                    },
+                    {
+                        path: 'auto-approval-rules',
+                        name: 'AutoApprovalRules',
+                        component: () => import('../views/system-settings/AutoApprovalRules.vue'),
+                        meta: { title: '自动审批规则', module: 'system-settings', role: ['admin'] },
+                    },
+                    {
                         path: 'production-team',
                         name: 'ProductionTeam',
                         component: () => import('../views/system-settings/ProductionTeam.vue'),
