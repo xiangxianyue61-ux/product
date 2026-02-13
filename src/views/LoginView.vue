@@ -62,9 +62,9 @@ const handleLogin = async () => {
             });
 
             if (isFirstLogin) {
-                router.push('/profile');
+                router.push({ name: 'Profile' });
             } else {
-                router.push('/home');
+                router.push({ name: 'Home' });
             }
         } else {
             alert(res.data.msg || '登录失败');

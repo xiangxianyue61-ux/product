@@ -51,6 +51,8 @@ interface WorkflowDefinitionData {
     xml: string;
     description?: string;
     triggerRole?: string;
+    status?: string;
+    isTemplate?: boolean;
 }
 
 export function getEmployeeList(params: ListQueryParams) {
@@ -93,6 +95,13 @@ export function addEmployeeList(data: EmployeeData) {
 }
 export function updateEmployeeList(id: string, data: EmployeeData) {
     return http.put(`/api/users/${id}`, data, {
+        metadata: {
+            action: 'employee_list',
+        },
+    });
+}
+export function deleteEmployeeList(id: string) {
+    return http.delete(`/api/users/${id}`, {
         metadata: {
             action: 'employee_list',
         },
@@ -150,8 +159,25 @@ export function saveWorkflowDefinition(data: WorkflowDefinitionData) {
     });
 }
 
-export function getWorkflowDefinitions() {
+export function getWorkflowDefinitions(params?: { page?: number; limit?: number }) {
     return http.get('/api/workflow/definitions', {
+        params,
+        metadata: {
+            action: 'process-design',
+        },
+    });
+}
+
+export function updateWorkflowDefinition(id: string, data: WorkflowDefinitionData) {
+    return http.put(`/api/workflow/definitions/${id}`, data, {
+        metadata: {
+            action: 'process-design',
+        },
+    });
+}
+
+export function deleteWorkflowDefinition(id: string) {
+    return http.delete(`/api/workflow/definitions/${id}`, {
         metadata: {
             action: 'process-design',
         },
