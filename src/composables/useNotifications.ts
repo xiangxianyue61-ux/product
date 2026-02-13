@@ -53,11 +53,34 @@ export function useNotifications(options?: { showPopup?: boolean; onNew?: (item:
 
     function getWsUrl() {
         const token = localStorage.getItem('access_token')?.replace(/^Bearer\s+/i, '') || '';
-        // 统一使用当前站点的 origin，由 Vite 代理或反向代理处理 WebSocket 转发
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const base = `${protocol}//${window.location.host}`; // 如 ws://localhost:5173
+
+        // 优先使用环境变量配置的后端 WS 地址（推荐在 .env 中设置 VITE_WS_BASE_URL，例如 ws://localhost:3000）
+        const envBase = (import.meta.env.VITE_WS_BASE_URL as string | undefined) || '';
+        let base: string;
+
+        if (envBase) {
+            // 如果已经是 ws / wss 前缀，直接使用；如果是 http / https，则替换为对应 ws 协议
+            if (/^ws(s)?:\/\//i.test(envBase)) {
+                base = envBase;
+            } else if (/^http(s)?:\/\//i.test(envBase)) {
+                base = envBase.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:');
+            } else {
+                // 只给出 host:port 之类的，补全协议
+                base = `${protocol}//${envBase.replace(/^\/+/, '')}`;
+            }
+        } else if (window.location.hostname === 'localhost' && window.location.port === '5173') {
+            // 开发环境下，前端跑在 5173，后端在 3000 时，直接连到 3000 端口
+            base = `${protocol}//localhost:3000`;
+        } else {
+            // 其它情况使用当前站点 origin，由反向代理处理转发
+            base = `${protocol}//${window.location.host}`;
+        }
+
         const path = '/notify-ws';
-        return `${base}${path}?token=${encodeURIComponent(token)}`;
+        // 确保不会出现重复的斜杠
+        const urlBase = base.replace(/\/+$/, '');
+        return `${urlBase}${path}?token=${encodeURIComponent(token)}`;
     }
 
     async function fetchList() {
@@ -84,12 +107,17 @@ export function useNotifications(options?: { showPopup?: boolean; onNew?: (item:
                         return t > lastSeen && now - t <= REPLAY_WINDOW_MS;
                     });
 
-                    if (recent.length && (window as WindowWithMessage).$message?.info) {
+                    if (recent.length) {
                         for (const n of recent) {
-                            (window as WindowWithMessage).$message!.info({
-                                content: `${n.title}: ${n.message}`,
-                                duration: 4,
-                            });
+                            // 优先走外部传入的 onNew（例如 MainLayout 中的右上角系统通知）
+                            if (onNew) {
+                                onNew(n);
+                            } else if ((window as WindowWithMessage).$message?.info) {
+                                (window as WindowWithMessage).$message!.info({
+                                    content: `${n.title}: ${n.message}`,
+                                    duration: 4,
+                                });
+                            }
                         }
                     }
                 }
@@ -131,8 +159,18 @@ export function useNotifications(options?: { showPopup?: boolean; onNew?: (item:
 
     function connectWs() {
         if (typeof WebSocket === 'undefined') return;
-        // 开发环境下如果 WebSocket 代理不稳定，可以直接关闭 WS，只依赖轮询接口和主动刷新事件，避免控制台持续报错
-        if (import.meta.env.DEV) return;
+        // 是否禁用 WebSocket
+        // - 默认在开发环境下关闭，避免本地代理/端口冲突导致控制台持续报错
+        // - 如需在开发环境启用 WebSocket，可在 .env 中设置 VITE_ENABLE_WS_DEV=true
+        // - 生产环境默认开启
+        const disableWsFlag = import.meta.env.VITE_DISABLE_WS === 'true';
+        const isDev = import.meta.env.DEV;
+        const enableWsInDev = import.meta.env.VITE_ENABLE_WS_DEV === 'true';
+        if (disableWsFlag) return;
+        if (isDev && !enableWsInDev) return;
+
+        // 在扩展页面环境中也不启用 WS，避免无意义的错误
+        if (typeof window !== 'undefined' && window.location.protocol === 'chrome-extension:') return;
         if (isConnecting) return; // 防止重复连接
         if (!shouldReconnect) return; // 如果不需要重连，直接返回
 
