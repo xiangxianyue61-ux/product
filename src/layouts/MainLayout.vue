@@ -147,7 +147,7 @@ import { useNotifications } from '../composables/useNotifications';
 import type { NotificationItem } from '../composables/useNotifications';
 
 import { addMenuList } from '../views/system-settings/api/index';
-import { message } from 'ant-design-vue';
+import { message, notification } from 'ant-design-vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -164,9 +164,20 @@ const {
     markAllRead: markAllNotificationsRead,
 } = useNotifications({
     onNew(item: NotificationItem) {
-        message.info(`${item.title}: ${item.message}`, 4);
+        // 使用右上角系统通知弹出
+        notification.open({
+            message: item.title || '系统通知',
+            description: item.message || '',
+            placement: 'topRight',
+            duration: 4,
+        });
         // 通知列表页实时刷新：工单/异常创建后，其他端或他人操作时当前页列表自动更新
-        if (item.type === 'work_order' || item.type === 'abnormal') {
+        if (
+            item.type === 'work_order' ||
+            item.type === 'abnormal' ||
+            item.type === 'equipment_repair' ||
+            item.type === 'equipment_scrapping'
+        ) {
             window.dispatchEvent(new CustomEvent('list-invalidate', { detail: { type: item.type } }));
         }
     },
@@ -189,6 +200,18 @@ const handleNotificationClick = async (item: NotificationItem) => {
         router.push({
             name: 'AnomalyManagementPage',
             query: code ? { code } : undefined,
+        });
+    } else if (item.type === 'equipment_repair') {
+        // 设备审批相关的待办通知，统一跳转到“我的待办”页面处理
+        router.push({
+            name: 'MyTodo',
+            query: { processKey: 'equipment-repair' },
+        });
+    } else if (item.type === 'equipment_scrapping') {
+        // 报废审批相关的待办通知，同样跳到“我的待办”
+        router.push({
+            name: 'MyTodo',
+            query: { processKey: 'equipment-scrapping' },
         });
     }
 };

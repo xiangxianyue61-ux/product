@@ -161,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, onBeforeUnmount, reactive, ref } from 'vue';
 import { message, Modal } from 'ant-design-vue';
 import { getRepairList, createRepair, updateRepair, deleteRepair, type EquipmentRepair } from './api/index';
 import dayjs from 'dayjs';
@@ -388,5 +388,21 @@ const noop = () => {
     message.info('功能开发中');
 };
 
-onMounted(() => loadData());
+// 监听全局 list-invalidate 事件，确保跨端审批后列表实时刷新
+const handleListInvalidate = (e: Event) => {
+    const detail = (e as CustomEvent).detail as { type?: string } | undefined;
+    if (!detail || !detail.type) return;
+    if (detail.type === 'equipment_repair') {
+        loadData();
+    }
+};
+
+onMounted(() => {
+    window.addEventListener('list-invalidate', handleListInvalidate as EventListener);
+    loadData();
+});
+
+onBeforeUnmount(() => {
+    window.removeEventListener('list-invalidate', handleListInvalidate as EventListener);
+});
 </script>
