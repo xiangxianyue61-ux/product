@@ -152,6 +152,13 @@ const treeData = ref<TreeNode[]>([
                     },
                 ],
             },
+            { title: '第二事业部', key: 'dept-4' },
+            { title: '第三事业部', key: 'dept-5' },
+            { title: '质量控制部', key: 'dept-6' },
+            { title: '财务部', key: 'dept-7' },
+            { title: '设备部', key: 'dept-8' },
+            { title: '综合管理部', key: 'dept-9' },
+            { title: '综合事业部', key: 'dept-10' },
         ],
     },
 ]);

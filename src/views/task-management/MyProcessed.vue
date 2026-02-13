@@ -2,11 +2,8 @@
     <div class="bg-[#f0f2f5]">
         <a-card class="mb-4" :bordered="false">
             <a-form :model="searchForm" layout="inline">
-                <a-form-item label="任务编号">
-                    <a-input v-model:value="searchForm.code" placeholder="请输入内容" style="width: 220px" />
-                </a-form-item>
-                <a-form-item label="流程名称">
-                    <a-input v-model:value="searchForm.flowName" placeholder="请输入内容" style="width: 220px" />
+                <a-form-item label="流程类型">
+                    <a-input v-model:value="searchForm.processKey" placeholder="请输入流程类型" style="width: 220px" />
                 </a-form-item>
                 <a-form-item>
                     <a-space>
@@ -18,27 +15,40 @@
         </a-card>
 
         <a-card class="mb-4" :bordered="false">
-            <a-space>
-                <a-button type="primary" @click="noop" disabled>新增</a-button>
-                <a-button @click="noop" disabled>编辑</a-button>
-                <a-button danger @click="noop" disabled>删除</a-button>
-                <a-button @click="noop">打印</a-button>
-                <a-button @click="noop">导入</a-button>
-                <a-button @click="noop">导出</a-button>
-            </a-space>
+            <a-alert message="显示您已处理的所有审批任务历史记录" type="info" show-icon />
         </a-card>
 
         <a-card :bordered="false">
-            <a-table :columns="columns" :data-source="tableData" :pagination="false" row-key="id" :scroll="{ x: 1400 }">
+            <a-table
+                :columns="columns"
+                :data-source="tableData"
+                :pagination="false"
+                :loading="loading"
+                row-key="instanceId"
+                :scroll="{ x: 1500 }"
+            >
                 <template #bodyCell="{ column, record }">
-                    <template v-if="column.key === 'status'">
-                        <span class="text-green-500 font-medium">{{ record.status }}</span>
-                    </template>
-                    <template v-else-if="column.key === 'binding'">
-                        <a class="text-blue-500" @click="noop">{{ record.binding }}</a>
+                    <template v-if="column.key === 'businessKey'">
+                        <span>{{ record.businessKey || record.instanceId.substring(0, 8) }}</span>
                     </template>
                     <template v-else-if="column.key === 'action'">
-                        <a class="text-blue-500" @click="noop">详情</a>
+                        <span :class="getActionColor(record.action)" class="font-medium">
+                            {{ getActionText(record.action) }}
+                        </span>
+                    </template>
+                    <template v-else-if="column.key === 'processedAt'">
+                        <span>{{ formatDate(record.processedAt) }}</span>
+                    </template>
+                    <template v-else-if="column.key === 'initiator'">
+                        <span>{{ record.initiator?.realName || record.initiator?.username || '-' }}</span>
+                    </template>
+                    <template v-else-if="column.key === 'status'">
+                        <span :class="getStatusColor(record.status)" class="font-medium">
+                            {{ getStatusText(record.status) }}
+                        </span>
+                    </template>
+                    <template v-else-if="column.key === 'operation'">
+                        <a class="text-blue-500" @click="handleViewDetail(record)">详情</a>
                     </template>
                 </template>
             </a-table>
@@ -56,28 +66,20 @@
                 />
             </div>
         </a-card>
+
+        <WorkflowDetailModal :instance-id="selectedInstanceId" @close="handleCloseDetail" />
     </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
 import { message } from 'ant-design-vue';
+import { getMyProcessed, type ProcessedTask } from './api/index';
+import WorkflowDetailModal from './components/WorkflowDetailModal.vue';
+import dayjs from 'dayjs';
 
-type Row = {
-    id: number;
-    code: string;
-    name: string;
-    node: string;
-    todoType: string;
-    startTime: string;
-    deadline: string;
-    sponsor: string;
-    status: string;
-    binding: string;
-};
-
-const searchForm = reactive({ code: '', flowName: '' });
-const pagination = reactive({ current: 1, pageSize: 15, total: 56 });
+const searchForm = reactive({ processKey: '' });
+const pagination = reactive({ current: 1, pageSize: 15, total: 0 });
 
 const columns = [
     {
@@ -86,50 +88,105 @@ const columns = [
         width: 60,
         customRender: ({ index }: { index: number }) => (pagination.current - 1) * pagination.pageSize + index + 1,
     },
-    { title: '任务编号', dataIndex: 'code', key: 'code', width: 160 },
-    { title: '任务名称', dataIndex: 'name', key: 'name', width: 180 },
-    { title: '任务节点', dataIndex: 'node', key: 'node', width: 140 },
-    { title: '待办类型', dataIndex: 'todoType', key: 'todoType', width: 120 },
-    { title: '发起时间', dataIndex: 'startTime', key: 'startTime', width: 180 },
-    { title: '最晚处理时间', dataIndex: 'deadline', key: 'deadline', width: 180 },
-    { title: '发起人', dataIndex: 'sponsor', key: 'sponsor', width: 120 },
-    { title: '处理状态', key: 'status', width: 120 },
-    { title: '绑定', key: 'binding', width: 140 },
-    { title: '操作', key: 'action', width: 120, fixed: 'right' },
+    { title: '流程编号', dataIndex: 'businessKey', key: 'businessKey', width: 180 },
+    { title: '流程名称', dataIndex: 'processName', key: 'processName', width: 180 },
+    { title: '任务节点', dataIndex: 'taskName', key: 'taskName', width: 150 },
+    { title: '处理动作', key: 'action', width: 120 },
+    { title: '审批意见', dataIndex: 'comment', key: 'comment', width: 200 },
+    { title: '处理时间', key: 'processedAt', width: 180 },
+    { title: '发起人', key: 'initiator', width: 120 },
+    { title: '流程状态', key: 'status', width: 120 },
+    { title: '操作', key: 'operation', width: 120, fixed: 'right' },
 ];
 
-const tableData = ref<Row[]>([]);
+const tableData = ref<ProcessedTask[]>([]);
+const loading = ref(false);
+const selectedInstanceId = ref<string | null>(null);
 
-const mock: Row[] = Array.from({ length: 56 }, (_, i) => ({
-    id: i + 1,
-    code: `RWBH${String(i + 1).padStart(10, '0')}`,
-    name: ['2025告警任务', '2025审批任务', '2025保养任务', '2025维修任务'][i % 4],
-    node: '处理人',
-    todoType: ['告警待办', '工艺流转卡审批', '保养待办', '维修待办'][i % 4],
-    startTime: '2025.04.24 14:00:00',
-    deadline: '2025.04.26 18:00:00',
-    sponsor: '李民浩',
-    status: '已处理',
-    binding: i % 3 === 1 ? '工艺流转卡' : '',
-}));
+const loadData = async () => {
+    loading.value = true;
+    try {
+        const res = await getMyProcessed({
+            processKey: searchForm.processKey || undefined,
+            page: pagination.current,
+            limit: pagination.pageSize,
+        });
 
-const loadData = () => {
-    const start = (pagination.current - 1) * pagination.pageSize;
-    const end = start + pagination.pageSize;
-    tableData.value = mock.slice(start, end);
+        if (res.data.success) {
+            tableData.value = res.data.data;
+            pagination.total = res.data.total;
+        } else {
+            message.error('加载数据失败');
+        }
+    } catch (error) {
+        console.error('Load my processed error:', error);
+        message.error('加载数据失败');
+    } finally {
+        loading.value = false;
+    }
 };
 
 const handleSearch = () => {
     pagination.current = 1;
     loadData();
-    message.success('查询成功');
 };
 
 const handleReset = () => {
-    searchForm.code = '';
-    searchForm.flowName = '';
+    searchForm.processKey = '';
     pagination.current = 1;
     loadData();
+};
+
+const handleViewDetail = (record: ProcessedTask) => {
+    selectedInstanceId.value = record.instanceId;
+};
+
+const handleCloseDetail = () => {
+    selectedInstanceId.value = null;
+};
+
+const getActionText = (action: string) => {
+    const texts: Record<string, string> = {
+        complete: '完成',
+        approve: '批准',
+        'auto-approve': '自动批准',
+        reject: '拒绝',
+        'auto-reject': '自动拒绝',
+    };
+    return texts[action] || action;
+};
+
+const getActionColor = (action: string) => {
+    const colors: Record<string, string> = {
+        complete: 'text-blue-500',
+        approve: 'text-green-500',
+        'auto-approve': 'text-cyan-500',
+        reject: 'text-red-500',
+        'auto-reject': 'text-orange-500',
+    };
+    return colors[action] || 'text-gray-500';
+};
+
+const getStatusText = (status: string) => {
+    const texts: Record<string, string> = {
+        active: '进行中',
+        completed: '已完成',
+        terminated: '已终止',
+    };
+    return texts[status] || status;
+};
+
+const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
+        active: 'text-blue-500',
+        completed: 'text-green-500',
+        terminated: 'text-red-500',
+    };
+    return colors[status] || 'text-gray-500';
+};
+
+const formatDate = (date: string) => {
+    return dayjs(date).format('YYYY-MM-DD HH:mm:ss');
 };
 
 const handlePageChange = (page: number) => {
@@ -142,8 +199,6 @@ const handlePageSizeChange = (_current: number, size: number) => {
     pagination.pageSize = size;
     loadData();
 };
-
-const noop = () => message.info('演示页面：此功能暂未接入后端');
 
 onMounted(() => loadData());
 </script>

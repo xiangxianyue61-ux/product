@@ -21,7 +21,7 @@
             <a-space>
                 <a-button type="primary" @click="handleAdd">新增</a-button>
                 <a-button @click="handleEdit(null)" :disabled="selectedRowKeys.length !== 1">编辑</a-button>
-                <a-button danger @click="noop" :disabled="selectedRowKeys.length === 0">删除</a-button>
+                <a-button danger @click="handleBatchDelete" :disabled="selectedRowKeys.length === 0">删除</a-button>
                 <a-button @click="noop">打印</a-button>
                 <a-button @click="noop">导入</a-button>
                 <a-button @click="noop">导出</a-button>
@@ -44,7 +44,7 @@
                         <a-space>
                             <a @click="noop">详情</a>
                             <a @click="handleEdit(record)">编辑</a>
-                            <a style="color: #ff4d4f" @click="noop">删除</a>
+                            <a style="color: #ff4d4f" @click="handleDelete(record)">删除</a>
                         </a-space>
                     </template>
                 </template>
@@ -116,8 +116,8 @@
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
-import { message } from 'ant-design-vue';
-import { getEmployeeList, addEmployeeList, getRoleList, updateEmployeeList } from './api/index';
+import { message, Modal } from 'ant-design-vue';
+import { getEmployeeList, addEmployeeList, getRoleList, updateEmployeeList, deleteEmployeeList } from './api/index';
 
 type Row = {
     _id: string;
@@ -140,7 +140,7 @@ const selectedRowKeys = ref<string[]>([]);
 const roleOptions = ref<{ _id: string; displayName: string }[]>([]);
 
 const getRoleOptions = async () => {
-    const res = await getRoleList();
+    const res = await getRoleList({ limit: 1000 });
     if (res.data.success) {
         roleOptions.value = res.data.data;
     }
@@ -225,6 +225,72 @@ const handleJumpToPage = () => {
 };
 
 const noop = () => message.info('演示页面：此功能暂未接入后端');
+
+// 删除单个用户
+const handleDelete = (record: Row) => {
+    Modal.confirm({
+        title: '确认删除',
+        content: `确定要删除用户 "${record.realName || record.username}" 吗？此操作不可恢复。`,
+        okText: '确定',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: async () => {
+            try {
+                const res = await deleteEmployeeList(record._id);
+                if (res.data.success) {
+                    message.success('删除成功');
+                    getEmployeeListData();
+                    selectedRowKeys.value = selectedRowKeys.value.filter(key => key !== record._id);
+                } else {
+                    message.error(res.data.message || '删除失败');
+                }
+            } catch (error) {
+                console.error('Delete user error:', error);
+            }
+        },
+    });
+};
+
+// 批量删除用户
+const handleBatchDelete = () => {
+    if (selectedRowKeys.value.length === 0) return;
+
+    const usernames = selectedRowKeys.value
+        .map(id => {
+            const user = tableData.value.find(item => item._id === id);
+            return user?.realName || user?.username || id;
+        })
+        .join('、');
+
+    Modal.confirm({
+        title: '确认批量删除',
+        content: `确定要删除以下 ${selectedRowKeys.value.length} 个用户吗？\n${usernames}\n\n此操作不可恢复。`,
+        okText: '确定',
+        okType: 'danger',
+        cancelText: '取消',
+        onOk: async () => {
+            try {
+                const deletePromises = selectedRowKeys.value.map(id => deleteEmployeeList(id));
+                const results = await Promise.all(deletePromises);
+
+                const successCount = results.filter(res => res.data.success).length;
+                const failCount = results.length - successCount;
+
+                if (failCount === 0) {
+                    message.success(`成功删除 ${successCount} 个用户`);
+                } else {
+                    message.warning(`成功删除 ${successCount} 个用户，失败 ${failCount} 个`);
+                }
+
+                selectedRowKeys.value = [];
+                getEmployeeListData();
+            } catch (error) {
+                console.error('Batch delete users error:', error);
+                message.error('批量删除失败');
+            }
+        },
+    });
+};
 
 // 新增逻辑
 const addModalVisible = ref(false);

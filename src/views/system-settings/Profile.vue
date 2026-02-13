@@ -9,9 +9,9 @@
         <div v-else-if="isFirstLogin" class="max-w-md mx-auto">
             <a-alert message="为了您的账户安全，首次登录请完善以下信息" type="warning" show-icon class="mb-6" />
 
-            <a-form :model="setupForm" layout="vertical" @finish="handleSetup">
+            <a-form ref="formRef" :model="setupForm" layout="vertical" @finish="handleSetup">
                 <a-form-item label="真实姓名" name="realName" :rules="[{ required: true, message: '请输入真实姓名' }]">
-                    <a-input v-model="setupForm.realName" placeholder="请输入真实姓名" />
+                    <a-input v-model:value="setupForm.realName" placeholder="请输入真实姓名" />
                 </a-form-item>
 
                 <a-form-item
@@ -22,7 +22,7 @@
                         { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号码' },
                     ]"
                 >
-                    <a-input v-model="setupForm.phone" placeholder="请输入手机号码" />
+                    <a-input v-model:value="setupForm.phone" placeholder="请输入手机号码" />
                 </a-form-item>
 
                 <a-form-item
@@ -33,7 +33,7 @@
                         { min: 6, message: '密码至少6位' },
                     ]"
                 >
-                    <a-input-password v-model="setupForm.password" placeholder="请输入新密码" />
+                    <a-input-password v-model:value="setupForm.password" placeholder="请输入新密码" />
                 </a-form-item>
 
                 <a-form-item
@@ -41,7 +41,7 @@
                     name="confirmPassword"
                     :rules="[{ required: true, message: '请确认新密码' }, { validator: validatePass2 }]"
                 >
-                    <a-input-password v-model="setupForm.confirmPassword" placeholder="请再次输入新密码" />
+                    <a-input-password v-model:value="setupForm.confirmPassword" placeholder="请再次输入新密码" />
                 </a-form-item>
 
                 <a-button type="primary" html-type="submit" block :loading="submitting" size="large">
@@ -79,7 +79,7 @@ import { ref, onMounted, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { updateProfile } from '../../api/modules/auth';
 import { getSystemProfile } from './api/index';
-
+import type { FormInstance } from 'ant-design-vue';
 import { message } from 'ant-design-vue';
 import dayjs from 'dayjs';
 
@@ -105,6 +105,7 @@ import { useStore } from 'vuex';
 
 const router = useRouter();
 const store = useStore();
+const formRef = ref<FormInstance>();
 const loading = ref(true);
 const submitting = ref(false);
 const isFirstLogin = ref(false);

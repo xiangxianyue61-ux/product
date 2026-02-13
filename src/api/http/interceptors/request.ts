@@ -10,9 +10,9 @@ export function setupRequestInterceptor(instance: AxiosInstance) {
         // }
         const token = localStorage.getItem('access_token');
 
-        // 如果存在 token，添加到请求头
+        // 如果存在 token，添加到请求头（必须加 Bearer 前缀）
         if (token) {
-            config.headers!.Authorization = token;
+            config.headers!.Authorization = `${token}`;
         }
 
         // 如果存在 action metadata，添加到 X-Action 请求头用于后端鉴权
